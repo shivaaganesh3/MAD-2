@@ -1,6 +1,7 @@
-from flask import Flask
+from flask import Flask, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_login import LoginManager, current_user
 from datetime import datetime
 import os
 
@@ -11,40 +12,199 @@ app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "parking_system.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
+app.config['SECRET_KEY'] = 'parking-system-secret-key-change-in-production-2024'
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
 # Initialize extensions
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = None  # We'll handle this via API
+login_manager.login_message = None
+
 # Import models after db initialization
 from models import User, Admin, ParkingLot, ParkingSpot, Reservation
 
-# Basic route for testing
+@login_manager.user_loader
+def load_user(user_id):
+    """Load user for Flask-Login"""
+    # Check if it's an admin user (prefixed with 'admin_')
+    if user_id.startswith('admin_'):
+        admin_id = user_id.replace('admin_', '')
+        try:
+            return Admin.query.get(int(admin_id))
+        except ValueError:
+            return None
+    else:
+        # Regular user
+        try:
+            return User.query.get(int(user_id))
+        except ValueError:
+            return None
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    """Handle unauthorized access for API"""
+    return jsonify({
+        'success': False,
+        'message': 'Authentication required',
+        'error_code': 'UNAUTHORIZED'
+    }), 401
+
+# Register blueprints
+from routes.auth import auth_bp
+from routes.dashboard import dashboard_bp
+
+app.register_blueprint(auth_bp)
+app.register_blueprint(dashboard_bp)
+
+# Main application routes
 @app.route('/')
 def index():
-    return {
-        'message': 'Vehicle Parking System API',
-        'version': '1.0',
-        'status': 'active'
-    }
+    """API root endpoint"""
+    return jsonify({
+        'message': 'Vehicle Parking System V2 API',
+        'version': '2.0',
+        'status': 'active',
+        'authentication': 'enabled',
+        'endpoints': {
+            'auth': {
+                'login': '/api/auth/login',
+                'register': '/api/auth/register',
+                'logout': '/api/auth/logout',
+                'profile': '/api/auth/profile',
+                'status': '/api/auth/status'
+            },
+            'dashboard': {
+                'admin': '/api/dashboard/admin',
+                'user': '/api/dashboard/user',
+                'redirect': '/api/dashboard/redirect'
+            },
+            'health': '/health'
+        }
+    })
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with authentication status"""
     try:
         # Test database connection
         user_count = User.query.count()
-        return {
-            'status': 'healthy',
-            'database': 'connected',
-            'users': user_count
+        admin_count = Admin.query.count()
+        lot_count = ParkingLot.query.count()
+        spot_count = ParkingSpot.query.count()
+        reservation_count = Reservation.query.count()
+        
+        # Authentication status
+        auth_status = {
+            'authenticated': current_user.is_authenticated,
+            'user_id': current_user.get_id() if current_user.is_authenticated else None,
+            'user_role': current_user.get_role() if hasattr(current_user, 'get_role') and current_user.is_authenticated else None
         }
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'database': {
+                'status': 'connected',
+                'users': user_count,
+                'admins': admin_count,
+                'parking_lots': lot_count,
+                'parking_spots': spot_count,
+                'reservations': reservation_count
+            },
+            'authentication': auth_status,
+            'flask_login': 'enabled',
+            'session_support': 'enabled'
+        })
     except Exception as e:
-        return {
+        return jsonify({
             'status': 'unhealthy',
-            'error': str(e)
-        }, 500
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/api/info')
+def api_info():
+    """Get API information and available endpoints"""
+    endpoints = {
+        'authentication': {
+            'POST /api/auth/login': 'User/Admin login',
+            'POST /api/auth/register': 'User registration (admin registration not allowed)',
+            'POST /api/auth/logout': 'Logout (requires authentication)',
+            'GET /api/auth/profile': 'Get user profile (requires authentication)',
+            'GET /api/auth/status': 'Check authentication status'
+        },
+        'dashboard': {
+            'GET /api/dashboard/admin': 'Admin dashboard (admin only)',
+            'GET /api/dashboard/user': 'User dashboard (users only)',
+            'GET /api/dashboard/redirect': 'Get dashboard redirect based on role',
+            'GET /api/dashboard/admin/users': 'List all users (admin only)',
+            'GET /api/dashboard/admin/parking-lots': 'List parking lots (admin only)'
+        }
+    }
+    
+    return jsonify({
+        'api_name': 'Vehicle Parking System V2',
+        'version': '2.0',
+        'authentication': 'Flask-Login with sessions',
+        'role_based_access': True,
+        'endpoints': endpoints,
+        'default_admin': {
+            'username': 'admin',
+            'note': 'Default password set during database initialization'
+        }
+    })
+
+# Error handlers
+@app.errorhandler(401)
+def unauthorized_error(error):
+    """Handle unauthorized access"""
+    return jsonify({
+        'success': False,
+        'message': 'Authentication required',
+        'error_code': 'UNAUTHORIZED'
+    }), 401
+
+@app.errorhandler(403)
+def forbidden_error(error):
+    """Handle forbidden access"""
+    return jsonify({
+        'success': False,
+        'message': 'Access forbidden - insufficient permissions',
+        'error_code': 'FORBIDDEN'
+    }), 403
+
+@app.errorhandler(404)
+def not_found_error(error):
+    """Handle page not found"""
+    return jsonify({
+        'success': False,
+        'message': 'Endpoint not found',
+        'error_code': 'NOT_FOUND'
+    }), 404
+
+@app.errorhandler(405)
+def method_not_allowed_error(error):
+    """Handle method not allowed"""
+    return jsonify({
+        'success': False,
+        'message': 'Method not allowed for this endpoint',
+        'error_code': 'METHOD_NOT_ALLOWED'
+    }), 405
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle internal server error"""
+    db.session.rollback()
+    return jsonify({
+        'success': False,
+        'message': 'Internal server error',
+        'error_code': 'INTERNAL_ERROR'
+    }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

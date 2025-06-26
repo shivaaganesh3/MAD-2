@@ -1,13 +1,15 @@
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Import db from app to avoid circular imports
 from app import db
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     """
     User model for registered users who can book parking spots
+    Inherits from UserMixin for Flask-Login compatibility
     """
     __tablename__ = 'users'
     
@@ -32,14 +34,48 @@ class User(db.Model):
         """Check if provided password matches hash"""
         return check_password_hash(self.password_hash, password)
     
+    # Flask-Login required properties
+    def get_id(self):
+        """Return the user ID as a string"""
+        return str(self.id)
+    
+    @property
+    def is_authenticated(self):
+        """Return True if user is authenticated"""
+        return True
+    
+    @property
+    def is_anonymous(self):
+        """Return False as this is not an anonymous user"""
+        return False
+    
+    def get_role(self):
+        """Return user role for RBAC"""
+        return 'user'
+    
+    def to_dict(self):
+        """Convert user to dictionary for JSON response"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'full_name': self.full_name,
+            'phone_number': self.phone_number,
+            'address': self.address,
+            'created_at': self.created_at.isoformat(),
+            'is_active': self.is_active,
+            'role': self.get_role()
+        }
+    
     def __repr__(self):
         return f'<User {self.username}>'
 
 
-class Admin(db.Model):
+class Admin(UserMixin, db.Model):
     """
     Admin model - predefined superuser with root access
     Only one admin should exist in the system
+    Inherits from UserMixin for Flask-Login compatibility
     """
     __tablename__ = 'admins'
     
@@ -57,6 +93,36 @@ class Admin(db.Model):
     def check_password(self, password):
         """Check if provided password matches hash"""
         return check_password_hash(self.password_hash, password)
+    
+    # Flask-Login required properties
+    def get_id(self):
+        """Return the admin ID as a string with admin prefix"""
+        return f"admin_{self.id}"
+    
+    @property
+    def is_authenticated(self):
+        """Return True if admin is authenticated"""
+        return True
+    
+    @property
+    def is_anonymous(self):
+        """Return False as this is not an anonymous user"""
+        return False
+    
+    def get_role(self):
+        """Return admin role for RBAC"""
+        return 'admin'
+    
+    def to_dict(self):
+        """Convert admin to dictionary for JSON response"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'created_at': self.created_at.isoformat(),
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'role': self.get_role()
+        }
     
     def __repr__(self):
         return f'<Admin {self.username}>'
