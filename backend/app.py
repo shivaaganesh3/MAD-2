@@ -57,9 +57,11 @@ def unauthorized():
 # Register blueprints
 from routes.auth import auth_bp
 from routes.dashboard import dashboard_bp
+from routes.admin import admin_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(admin_bp)
 
 # Main application routes
 @app.route('/')
@@ -141,9 +143,18 @@ def api_info():
         'dashboard': {
             'GET /api/dashboard/admin': 'Admin dashboard (admin only)',
             'GET /api/dashboard/user': 'User dashboard (users only)',
-            'GET /api/dashboard/redirect': 'Get dashboard redirect based on role',
-            'GET /api/dashboard/admin/users': 'List all users (admin only)',
-            'GET /api/dashboard/admin/parking-lots': 'List parking lots (admin only)'
+            'GET /api/dashboard/redirect': 'Get dashboard redirect based on role'
+        },
+        'admin_management': {
+            'GET /api/admin/parking-lots': 'List all parking lots with filters (admin only)',
+            'GET /api/admin/parking-lots/{id}': 'Get detailed parking lot info (admin only)',
+            'POST /api/admin/parking-lots': 'Create new parking lot (admin only)',
+            'PUT /api/admin/parking-lots/{id}': 'Update parking lot (admin only)',
+            'DELETE /api/admin/parking-lots/{id}': 'Delete parking lot (admin only)',
+            'GET /api/admin/users': 'List all users with stats (admin only)',
+            'GET /api/admin/users/{id}': 'Get detailed user info (admin only)',
+            'POST /api/admin/users/{id}/toggle-status': 'Toggle user active status (admin only)',
+            'GET /api/admin/statistics': 'Get system statistics (admin only)'
         }
     }
     
