@@ -3,13 +3,18 @@ import AdminDashboard from '../components/admin/AdminDashboard.vue'
 import ParkingLotManager from '../components/admin/ParkingLotManager.vue'
 import UserManager from '../components/admin/UserManager.vue'
 import SystemStats from '../components/admin/SystemStats.vue'
+import ReservationManager from '../components/admin/ReservationManager.vue'
+import Analytics from '../components/admin/Analytics.vue'
 import Login from '../components/auth/Login.vue'
 import Register from '../components/auth/Register.vue'
+import UserDashboard from '../components/user/UserDashboard.vue'
+import ParkingLots from '../components/user/ParkingLots.vue'
+import ParkingHistory from '../components/user/ParkingHistory.vue'
 
 const routes = [
   {
     path: '/',
-    redirect: '/admin/dashboard'
+    redirect: '/login'
   },
   {
     path: '/login',
@@ -21,6 +26,8 @@ const routes = [
     name: 'Register',
     component: Register
   },
+  
+  // Admin Routes
   {
     path: '/admin',
     redirect: '/admin/dashboard'
@@ -44,10 +51,46 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
+    path: '/admin/reservations',
+    name: 'ReservationManager',
+    component: ReservationManager,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/analytics',
+    name: 'Analytics',
+    component: Analytics,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
     path: '/admin/statistics',
     name: 'SystemStats',
     component: SystemStats,
     meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  
+  // User Routes
+  {
+    path: '/user',
+    redirect: '/user/dashboard'
+  },
+  {
+    path: '/user/dashboard',
+    name: 'UserDashboard',
+    component: UserDashboard,
+    meta: { requiresAuth: true, requiresUser: true }
+  },
+  {
+    path: '/user/parking-lots',
+    name: 'ParkingLots',
+    component: ParkingLots,
+    meta: { requiresAuth: true, requiresUser: true }
+  },
+  {
+    path: '/user/history',
+    name: 'ParkingHistory',
+    component: ParkingHistory,
+    meta: { requiresAuth: true, requiresUser: true }
   }
 ]
 
@@ -77,7 +120,16 @@ router.beforeEach(async (to, from, next) => {
       if (to.matched.some(record => record.meta.requiresAdmin)) {
         if (authData.user.role !== 'admin') {
           alert('Admin access required')
-          next('/login')
+          next('/user/dashboard')
+          return
+        }
+      }
+      
+      // Check user requirement
+      if (to.matched.some(record => record.meta.requiresUser)) {
+        if (authData.user.role !== 'user') {
+          alert('User access required')
+          next('/admin/dashboard')
           return
         }
       }

@@ -239,6 +239,31 @@ class Reservation(db.Model):
             return max(1, int(hours) + (1 if hours % 1 > 0 else 0))  # Round up, minimum 1 hour
         return 0
     
+    @property
+    def current_duration_minutes(self):
+        """Calculate current duration in minutes for active reservations"""
+        if self.status == 'active':
+            duration = datetime.utcnow() - self.parking_timestamp
+            return int(duration.total_seconds() / 60)
+        return self.duration_minutes
+    
+    @property
+    def current_duration_hours(self):
+        """Calculate current duration in hours for active reservations"""
+        if self.status == 'active':
+            duration = datetime.utcnow() - self.parking_timestamp
+            hours = duration.total_seconds() / 3600
+            return round(hours, 2)
+        return self.duration_hours if self.leaving_timestamp else 0
+    
+    @property
+    def estimated_cost(self):
+        """Calculate estimated cost for active reservations"""
+        if self.status == 'active' and self.parking_spot:
+            hours = self.current_duration_hours
+            return round(hours * self.parking_spot.parking_lot.price_per_hour, 2)
+        return self.parking_cost or 0
+    
     def calculate_cost(self):
         """Calculate parking cost based on duration and lot price"""
         if self.leaving_timestamp and self.parking_spot:
@@ -247,6 +272,74 @@ class Reservation(db.Model):
             self.parking_cost = round(cost, 2)
             return self.parking_cost
         return 0
+    
+    def get_cost_breakdown(self):
+        """Get detailed cost breakdown for this reservation"""
+        if not self.parking_spot:
+            return None
+        
+        breakdown = {
+            'hourly_rate': self.parking_spot.parking_lot.price_per_hour,
+            'billing_method': 'hourly',
+            'currency': 'INR'
+        }
+        
+        if self.status == 'active':
+            # Active reservation - estimated cost
+            current_minutes = self.current_duration_minutes
+            current_hours = self.current_duration_hours
+            estimated_cost = self.estimated_cost
+            
+            breakdown.update({
+                'duration_minutes': current_minutes,
+                'duration_hours': current_hours,
+                'estimated_cost': estimated_cost,
+                'billing_hours': round(current_hours, 2),
+                'is_final': False,
+                'cost_calculation': f"{current_hours:.2f} hours × ₹{self.parking_spot.parking_lot.price_per_hour}/hour = ₹{estimated_cost}"
+            })
+        
+        elif self.status == 'completed' and self.leaving_timestamp:
+            # Completed reservation - final cost
+            breakdown.update({
+                'duration_minutes': self.duration_minutes,
+                'duration_hours': self.duration_hours,
+                'actual_hours': round((self.leaving_timestamp - self.parking_timestamp).total_seconds() / 3600, 2),
+                'billing_hours': self.duration_hours,  # Rounded up for billing
+                'final_cost': self.parking_cost,
+                'is_final': True,
+                'cost_calculation': f"{self.duration_hours} billing hours × ₹{self.parking_spot.parking_lot.price_per_hour}/hour = ₹{self.parking_cost}"
+            })
+        
+        else:
+            # Cancelled or incomplete reservation
+            breakdown.update({
+                'duration_minutes': 0,
+                'duration_hours': 0,
+                'final_cost': 0,
+                'is_final': True,
+                'cost_calculation': 'No cost - reservation was cancelled'
+            })
+        
+        return breakdown
+    
+    def get_revenue_stats(self):
+        """Get revenue statistics for this reservation"""
+        if not self.parking_spot:
+            return None
+        
+        return {
+            'lot_name': self.parking_spot.parking_lot.prime_location_name,
+            'lot_id': self.parking_spot.parking_lot.id,
+            'spot_number': self.parking_spot.spot_number,
+            'user_name': self.user.full_name,
+            'user_id': self.user.id,
+            'cost': self.parking_cost or 0,
+            'duration_hours': self.duration_hours if self.status == 'completed' else 0,
+            'hourly_rate': self.parking_spot.parking_lot.price_per_hour,
+            'status': self.status,
+            'date': self.parking_timestamp.date().isoformat() if self.parking_timestamp else None
+        }
     
     def __repr__(self):
         return f'<Reservation {self.id} - User {self.user_id} - Spot {self.spot_id}>' 

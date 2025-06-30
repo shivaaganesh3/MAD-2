@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
 from models import User, Admin, ParkingLot, ParkingSpot, Reservation, db
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import func, desc
 import re
 
@@ -733,8 +733,40 @@ def get_system_statistics():
             Reservation.parking_cost.isnot(None)
         ).scalar() or 0
         
+        # Today's revenue
+        today = datetime.utcnow().date()
+        today_revenue = db.session.query(func.sum(Reservation.parking_cost)).filter(
+            Reservation.status == 'completed',
+            Reservation.parking_cost.isnot(None),
+            func.date(Reservation.leaving_timestamp) == today
+        ).scalar() or 0
+        
+        # This month's revenue
+        this_month = datetime.utcnow().replace(day=1).date()
+        month_revenue = db.session.query(func.sum(Reservation.parking_cost)).filter(
+            Reservation.status == 'completed',
+            Reservation.parking_cost.isnot(None),
+            Reservation.leaving_timestamp >= this_month
+        ).scalar() or 0
+        
         stats['revenue'] = {
-            'total': round(total_revenue, 2)
+            'total': round(total_revenue, 2),
+            'today': round(today_revenue, 2),
+            'this_month': round(month_revenue, 2)
+        }
+        
+        # Average session data
+        completed_reservations = Reservation.query.filter_by(status='completed').all()
+        if completed_reservations:
+            avg_duration = sum([r.duration_minutes for r in completed_reservations]) / len(completed_reservations)
+            avg_cost = sum([r.parking_cost for r in completed_reservations if r.parking_cost]) / len([r for r in completed_reservations if r.parking_cost])
+        else:
+            avg_duration = 0
+            avg_cost = 0
+        
+        stats['averages'] = {
+            'session_duration_minutes': round(avg_duration, 1),
+            'session_cost': round(avg_cost, 2)
         }
         
         return jsonify({
@@ -746,4 +778,435 @@ def get_system_statistics():
         return jsonify({
             'success': False,
             'message': f'Error loading statistics: {str(e)}'
+        }), 500
+
+# ==================== RESERVATION MANAGEMENT ====================
+
+@admin_bp.route('/reservations', methods=['GET'])
+@admin_required
+def get_all_reservations():
+    """Get all parking reservations with filtering and pagination"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 20, type=int), 100)
+        
+        # Filters
+        status_filter = request.args.get('status', '').strip()
+        user_filter = request.args.get('user', '').strip()
+        lot_filter = request.args.get('lot', '').strip()
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        
+        # Build query
+        query = Reservation.query.join(User).join(ParkingSpot).join(ParkingLot)
+        
+        # Apply filters
+        if status_filter and status_filter in ['active', 'completed', 'cancelled']:
+            query = query.filter(Reservation.status == status_filter)
+        
+        if user_filter:
+            search_filter = f"%{user_filter}%"
+            query = query.filter(
+                db.or_(
+                    User.username.ilike(search_filter),
+                    User.full_name.ilike(search_filter),
+                    User.email.ilike(search_filter)
+                )
+            )
+        
+        if lot_filter:
+            search_filter = f"%{lot_filter}%"
+            query = query.filter(
+                ParkingLot.prime_location_name.ilike(search_filter)
+            )
+        
+        if date_from:
+            try:
+                from_date = datetime.strptime(date_from, '%Y-%m-%d').date()
+                query = query.filter(func.date(Reservation.parking_timestamp) >= from_date)
+            except ValueError:
+                pass
+        
+        if date_to:
+            try:
+                to_date = datetime.strptime(date_to, '%Y-%m-%d').date()
+                query = query.filter(func.date(Reservation.parking_timestamp) <= to_date)
+            except ValueError:
+                pass
+        
+        # Order by latest first
+        query = query.order_by(desc(Reservation.created_at))
+        
+        # Get pagination
+        pagination = query.paginate(
+            page=page, per_page=per_page, 
+            error_out=False
+        )
+        
+        reservations_data = []
+        for reservation in pagination.items:
+            duration_minutes = 0
+            current_cost = 0
+            
+            if reservation.status == 'active':
+                # Calculate current duration and estimated cost
+                duration_minutes = (datetime.utcnow() - reservation.parking_timestamp).total_seconds() / 60
+                current_cost = round(duration_minutes / 60 * reservation.parking_spot.parking_lot.price_per_hour, 2)
+            else:
+                duration_minutes = reservation.duration_minutes
+                current_cost = reservation.parking_cost or 0
+            
+            reservations_data.append({
+                'id': reservation.id,
+                'user': {
+                    'id': reservation.user.id,
+                    'username': reservation.user.username,
+                    'full_name': reservation.user.full_name,
+                    'email': reservation.user.email,
+                    'phone_number': reservation.user.phone_number
+                },
+                'parking_lot': {
+                    'id': reservation.parking_spot.parking_lot.id,
+                    'name': reservation.parking_spot.parking_lot.prime_location_name,
+                    'address': reservation.parking_spot.parking_lot.address,
+                    'price_per_hour': reservation.parking_spot.parking_lot.price_per_hour
+                },
+                'spot_number': reservation.parking_spot.spot_number,
+                'status': reservation.status,
+                'vehicle_number': reservation.vehicle_number,
+                'vehicle_model': reservation.vehicle_model,
+                'parking_timestamp': reservation.parking_timestamp.isoformat(),
+                'leaving_timestamp': reservation.leaving_timestamp.isoformat() if reservation.leaving_timestamp else None,
+                'duration_minutes': int(duration_minutes),
+                'duration_hours': reservation.duration_hours if reservation.status == 'completed' else round(duration_minutes / 60, 1),
+                'cost': current_cost,
+                'created_at': reservation.created_at.isoformat(),
+                'updated_at': reservation.updated_at.isoformat()
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'reservations': reservations_data,
+                'pagination': {
+                    'page': pagination.page,
+                    'pages': pagination.pages,
+                    'per_page': pagination.per_page,
+                    'total': pagination.total,
+                    'has_next': pagination.has_next,
+                    'has_prev': pagination.has_prev
+                }
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error loading reservations: {str(e)}'
+        }), 500
+
+@admin_bp.route('/reservations/<int:reservation_id>', methods=['GET'])
+@admin_required
+def get_reservation_details(reservation_id):
+    """Get detailed information about a specific reservation"""
+    try:
+        reservation = Reservation.query.get_or_404(reservation_id)
+        
+        duration_minutes = 0
+        current_cost = 0
+        cost_breakdown = {}
+        
+        if reservation.status == 'active':
+            # Calculate current duration and estimated cost
+            duration_minutes = (datetime.utcnow() - reservation.parking_timestamp).total_seconds() / 60
+            duration_hours = duration_minutes / 60
+            current_cost = round(duration_hours * reservation.parking_spot.parking_lot.price_per_hour, 2)
+            
+            # Cost breakdown for active reservation
+            cost_breakdown = {
+                'hourly_rate': reservation.parking_spot.parking_lot.price_per_hour,
+                'duration_minutes': int(duration_minutes),
+                'duration_hours': round(duration_hours, 2),
+                'estimated_cost': current_cost,
+                'billing_method': 'hourly',
+                'is_final': False
+            }
+        else:
+            duration_minutes = reservation.duration_minutes
+            current_cost = reservation.parking_cost or 0
+            
+            # Cost breakdown for completed reservation
+            if reservation.status == 'completed':
+                cost_breakdown = {
+                    'hourly_rate': reservation.parking_spot.parking_lot.price_per_hour,
+                    'duration_minutes': reservation.duration_minutes,
+                    'duration_hours': reservation.duration_hours,
+                    'final_cost': reservation.parking_cost,
+                    'billing_method': 'hourly',
+                    'billing_hours': reservation.duration_hours,  # Rounded up hours
+                    'is_final': True
+                }
+        
+        reservation_data = {
+            'id': reservation.id,
+            'user': {
+                'id': reservation.user.id,
+                'username': reservation.user.username,
+                'full_name': reservation.user.full_name,
+                'email': reservation.user.email,
+                'phone_number': reservation.user.phone_number,
+                'address': reservation.user.address
+            },
+            'parking_lot': {
+                'id': reservation.parking_spot.parking_lot.id,
+                'name': reservation.parking_spot.parking_lot.prime_location_name,
+                'address': reservation.parking_spot.parking_lot.address,
+                'pin_code': reservation.parking_spot.parking_lot.pin_code,
+                'price_per_hour': reservation.parking_spot.parking_lot.price_per_hour,
+                'description': reservation.parking_spot.parking_lot.description
+            },
+            'parking_spot': {
+                'id': reservation.parking_spot.id,
+                'spot_number': reservation.parking_spot.spot_number,
+                'vehicle_type': reservation.parking_spot.vehicle_type
+            },
+            'status': reservation.status,
+            'vehicle_number': reservation.vehicle_number,
+            'vehicle_model': reservation.vehicle_model,
+            'parking_timestamp': reservation.parking_timestamp.isoformat(),
+            'leaving_timestamp': reservation.leaving_timestamp.isoformat() if reservation.leaving_timestamp else None,
+            'duration_minutes': int(duration_minutes),
+            'duration_hours': reservation.duration_hours if reservation.status == 'completed' else round(duration_minutes / 60, 1),
+            'cost': current_cost,
+            'cost_breakdown': cost_breakdown,
+            'created_at': reservation.created_at.isoformat(),
+            'updated_at': reservation.updated_at.isoformat()
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': reservation_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error loading reservation details: {str(e)}'
+        }), 500
+
+@admin_bp.route('/reservations/<int:reservation_id>/force-release', methods=['POST'])
+@admin_required
+def force_release_reservation(reservation_id):
+    """Force release a parking spot (admin action)"""
+    try:
+        reservation = Reservation.query.get_or_404(reservation_id)
+        
+        if reservation.status != 'active':
+            return jsonify({
+                'success': False,
+                'message': 'Only active reservations can be force-released'
+            }), 400
+        
+        # Set leaving timestamp
+        leaving_time = datetime.utcnow()
+        reservation.leaving_timestamp = leaving_time
+        reservation.status = 'completed'
+        reservation.updated_at = leaving_time
+        
+        # Calculate final cost
+        final_cost = reservation.calculate_cost()
+        
+        # Free up the parking spot
+        reservation.parking_spot.status = 'A'
+        reservation.parking_spot.updated_at = leaving_time
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Parking spot force-released successfully!',
+            'data': {
+                'reservation_id': reservation.id,
+                'final_cost': final_cost,
+                'duration_minutes': reservation.duration_minutes,
+                'duration_hours': reservation.duration_hours
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error force-releasing reservation: {str(e)}'
+        }), 500
+
+# ==================== ANALYTICS AND REPORTS ====================
+
+@admin_bp.route('/analytics/revenue', methods=['GET'])
+@admin_required
+def get_revenue_analytics():
+    """Get detailed revenue analytics"""
+    try:
+        # Time period filter
+        period = request.args.get('period', 'month')  # day, week, month, year
+        
+        # Revenue by time period
+        revenue_data = []
+        
+        if period == 'day':
+            # Last 30 days
+            for i in range(29, -1, -1):
+                date = (datetime.utcnow() - timedelta(days=i)).date()
+                daily_revenue = db.session.query(func.sum(Reservation.parking_cost)).filter(
+                    Reservation.status == 'completed',
+                    Reservation.parking_cost.isnot(None),
+                    func.date(Reservation.leaving_timestamp) == date
+                ).scalar() or 0
+                
+                revenue_data.append({
+                    'date': date.isoformat(),
+                    'revenue': round(daily_revenue, 2)
+                })
+        
+        elif period == 'month':
+            # Last 12 months
+            for i in range(11, -1, -1):
+                date = datetime.utcnow().replace(day=1) - timedelta(days=32*i)
+                month_start = date.replace(day=1).date()
+                next_month = (date.replace(day=28) + timedelta(days=4)).replace(day=1).date()
+                
+                monthly_revenue = db.session.query(func.sum(Reservation.parking_cost)).filter(
+                    Reservation.status == 'completed',
+                    Reservation.parking_cost.isnot(None),
+                    func.date(Reservation.leaving_timestamp) >= month_start,
+                    func.date(Reservation.leaving_timestamp) < next_month
+                ).scalar() or 0
+                
+                revenue_data.append({
+                    'date': month_start.isoformat(),
+                    'revenue': round(monthly_revenue, 2),
+                    'month': date.strftime('%B %Y')
+                })
+        
+        # Revenue by parking lot
+        lot_revenue = db.session.query(
+            ParkingLot.prime_location_name,
+            func.sum(Reservation.parking_cost).label('total_revenue'),
+            func.count(Reservation.id).label('total_reservations')
+        ).join(ParkingSpot).join(Reservation).filter(
+            Reservation.status == 'completed',
+            Reservation.parking_cost.isnot(None)
+        ).group_by(ParkingLot.id).order_by(desc('total_revenue')).all()
+        
+        lot_revenue_data = []
+        for lot_name, revenue, reservations in lot_revenue:
+            lot_revenue_data.append({
+                'lot_name': lot_name,
+                'revenue': round(revenue, 2),
+                'reservations': reservations,
+                'avg_revenue_per_reservation': round(revenue / reservations, 2) if reservations > 0 else 0
+            })
+        
+        # Top users by spending
+        top_users = db.session.query(
+            User.full_name,
+            User.username,
+            func.sum(Reservation.parking_cost).label('total_spent'),
+            func.count(Reservation.id).label('total_reservations')
+        ).join(Reservation).filter(
+            Reservation.status == 'completed',
+            Reservation.parking_cost.isnot(None)
+        ).group_by(User.id).order_by(desc('total_spent')).limit(10).all()
+        
+        top_users_data = []
+        for full_name, username, spent, reservations in top_users:
+            top_users_data.append({
+                'full_name': full_name,
+                'username': username,
+                'total_spent': round(spent, 2),
+                'total_reservations': reservations,
+                'avg_spent_per_reservation': round(spent / reservations, 2) if reservations > 0 else 0
+            })
+        
+        analytics_data = {
+            'revenue_trend': revenue_data,
+            'revenue_by_lot': lot_revenue_data,
+            'top_users': top_users_data,
+            'period': period
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': analytics_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error loading revenue analytics: {str(e)}'
+        }), 500
+
+@admin_bp.route('/analytics/usage', methods=['GET'])
+@admin_required
+def get_usage_analytics():
+    """Get parking usage analytics"""
+    try:
+        # Peak hours analysis
+        peak_hours = db.session.query(
+            func.extract('hour', Reservation.parking_timestamp).label('hour'),
+            func.count(Reservation.id).label('reservations')
+        ).filter(
+            Reservation.status.in_(['active', 'completed'])
+        ).group_by('hour').order_by('hour').all()
+        
+        peak_hours_data = []
+        for hour, count in peak_hours:
+            peak_hours_data.append({
+                'hour': int(hour),
+                'reservations': count,
+                'time_label': f"{int(hour):02d}:00"
+            })
+        
+        # Average session duration by lot
+        lot_durations = db.session.query(
+            ParkingLot.prime_location_name,
+            func.avg(Reservation.duration_minutes).label('avg_duration'),
+            func.count(Reservation.id).label('total_sessions')
+        ).join(ParkingSpot).join(Reservation).filter(
+            Reservation.status == 'completed'
+        ).group_by(ParkingLot.id).order_by(desc('avg_duration')).all()
+        
+        lot_duration_data = []
+        for lot_name, avg_duration, sessions in lot_durations:
+            lot_duration_data.append({
+                'lot_name': lot_name,
+                'avg_duration_minutes': round(avg_duration or 0, 1),
+                'avg_duration_hours': round((avg_duration or 0) / 60, 1),
+                'total_sessions': sessions
+            })
+        
+        # Occupancy trends
+        total_spots = ParkingSpot.query.count()
+        current_occupied = ParkingSpot.query.filter_by(status='O').count()
+        current_occupancy = round((current_occupied / total_spots) * 100, 1) if total_spots > 0 else 0
+        
+        usage_data = {
+            'peak_hours': peak_hours_data,
+            'average_duration_by_lot': lot_duration_data,
+            'current_occupancy': {
+                'occupied_spots': current_occupied,
+                'total_spots': total_spots,
+                'occupancy_rate': current_occupancy
+            }
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': usage_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error loading usage analytics: {str(e)}'
         }), 500 

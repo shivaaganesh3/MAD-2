@@ -45,7 +45,32 @@ export const adminAPI = {
   // User management
   getUsers: (params = {}) => api.get('/admin/users', { params }),
   getUser: (id) => api.get(`/admin/users/${id}`),
-  toggleUserStatus: (id) => api.post(`/admin/users/${id}/toggle-status`)
+  toggleUserStatus: (id) => api.post(`/admin/users/${id}/toggle-status`),
+  
+  // Reservation management
+  getReservations: (params = {}) => api.get('/admin/reservations', { params }),
+  getReservation: (id) => api.get(`/admin/reservations/${id}`),
+  forceReleaseReservation: (id) => api.post(`/admin/reservations/${id}/force-release`),
+  
+  // Analytics and reports
+  getRevenueAnalytics: (params = {}) => api.get('/admin/analytics/revenue', { params }),
+  getUsageAnalytics: () => api.get('/admin/analytics/usage')
+}
+
+// User API
+export const userAPI = {
+  // Parking lot browsing
+  getParkingLots: (params = {}) => api.get('/dashboard/user/parking-lots', { params }),
+  getParkingLot: (id) => api.get(`/dashboard/user/parking-lots/${id}`),
+  
+  // Reservation management
+  createReservation: (data) => api.post('/dashboard/user/reservations', data),
+  occupySpot: (reservationId) => api.post(`/dashboard/user/reservations/${reservationId}/occupy`),
+  releaseSpot: (reservationId) => api.post(`/dashboard/user/reservations/${reservationId}/release`),
+  
+  // Parking history
+  getReservations: (params = {}) => api.get('/dashboard/user/reservations', { params }),
+  getReservation: (id) => api.get(`/dashboard/user/reservations/${id}`)
 }
 
 // Dashboard API

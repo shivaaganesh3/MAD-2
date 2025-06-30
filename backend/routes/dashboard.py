@@ -3,12 +3,12 @@ Dashboard API routes with role-based access control
 Backend-focused with JSON responses
 """
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from functools import wraps
 from models import User, Admin, ParkingLot, ParkingSpot, Reservation, db
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, desc
 
 # Create dashboard blueprint
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/api/dashboard')
@@ -281,4 +281,454 @@ def admin_parking_lots():
         return jsonify({
             'success': False,
             'message': 'Error loading parking lots data'
+        }), 500
+
+# ==================== USER PARKING LOT MANAGEMENT ====================
+
+@dashboard_bp.route('/user/parking-lots', methods=['GET'])
+@user_required
+def get_available_parking_lots():
+    """Get all available parking lots for users"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 20, type=int), 100)
+        search = request.args.get('search', '').strip()
+        
+        # Build query for active lots with available spots
+        query = ParkingLot.query.filter_by(is_active=True)
+        
+        if search:
+            search_filter = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    ParkingLot.prime_location_name.ilike(search_filter),
+                    ParkingLot.address.ilike(search_filter),
+                    ParkingLot.pin_code.ilike(search_filter)
+                )
+            )
+        
+        # Get pagination
+        pagination = query.paginate(
+            page=page, per_page=per_page, 
+            error_out=False
+        )
+        
+        lots_data = []
+        for lot in pagination.items:
+            available_spots = lot.available_spots_count
+            if available_spots > 0:  # Only include lots with available spots
+                lots_data.append({
+                    'id': lot.id,
+                    'name': lot.prime_location_name,
+                    'address': lot.address,
+                    'pin_code': lot.pin_code,
+                    'price_per_hour': lot.price_per_hour,
+                    'available_spots': available_spots,
+                    'total_spots': lot.number_of_spots,
+                    'occupancy_rate': round(((lot.number_of_spots - available_spots) / lot.number_of_spots) * 100, 1),
+                    'description': lot.description,
+                    'created_at': lot.created_at.isoformat()
+                })
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'lots': lots_data,
+                'pagination': {
+                    'page': pagination.page,
+                    'pages': pagination.pages,
+                    'per_page': pagination.per_page,
+                    'total': pagination.total,
+                    'has_next': pagination.has_next,
+                    'has_prev': pagination.has_prev
+                }
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error loading parking lots: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/user/parking-lots/<int:lot_id>', methods=['GET'])
+@user_required  
+def get_parking_lot_details(lot_id):
+    """Get detailed information about a specific parking lot for users"""
+    try:
+        lot = ParkingLot.query.filter_by(id=lot_id, is_active=True).first()
+        if not lot:
+            return jsonify({
+                'success': False,
+                'message': 'Parking lot not found or inactive'
+            }), 404
+        
+        # Get available spots details
+        available_spots = []
+        for spot in lot.parking_spots.filter_by(status='A').order_by(ParkingSpot.spot_number):
+            available_spots.append({
+                'id': spot.id,
+                'spot_number': spot.spot_number,
+                'vehicle_type': spot.vehicle_type,
+                'created_at': spot.created_at.isoformat()
+            })
+        
+        lot_data = {
+            'id': lot.id,
+            'name': lot.prime_location_name,
+            'address': lot.address,
+            'pin_code': lot.pin_code,
+            'price_per_hour': lot.price_per_hour,
+            'available_spots_count': len(available_spots),
+            'total_spots': lot.number_of_spots,
+            'occupancy_rate': round(((lot.number_of_spots - len(available_spots)) / lot.number_of_spots) * 100, 1),
+            'description': lot.description,
+            'available_spots': available_spots,
+            'created_at': lot.created_at.isoformat()
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': lot_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error loading parking lot details: {str(e)}'
+        }), 500
+
+
+# ==================== USER RESERVATION MANAGEMENT ====================
+
+@dashboard_bp.route('/user/reservations', methods=['POST'])
+@user_required
+def create_reservation():
+    """Auto-allocate and reserve the first available spot in a parking lot"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No JSON data provided'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['lot_id', 'vehicle_number']
+        for field in required_fields:
+            if field not in data or not str(data[field]).strip():
+                return jsonify({
+                    'success': False,
+                    'message': f'Missing required field: {field}'
+                }), 400
+        
+        lot_id = int(data['lot_id'])
+        vehicle_number = data['vehicle_number'].strip().upper()
+        vehicle_model = data.get('vehicle_model', '').strip() or None
+        
+        # Check if user already has an active reservation
+        existing_reservation = current_user.reservations.filter_by(status='active').first()
+        if existing_reservation:
+            return jsonify({
+                'success': False,
+                'message': 'You already have an active reservation. Please complete it before making a new one.'
+            }), 400
+        
+        # Validate parking lot
+        lot = ParkingLot.query.filter_by(id=lot_id, is_active=True).first()
+        if not lot:
+            return jsonify({
+                'success': False,
+                'message': 'Parking lot not found or inactive'
+            }), 404
+        
+        # Find first available spot (auto-allocation)
+        available_spot = lot.parking_spots.filter_by(status='A').order_by(ParkingSpot.spot_number).first()
+        if not available_spot:
+            return jsonify({
+                'success': False,
+                'message': 'No available spots in this parking lot'
+            }), 400
+        
+        # Create reservation
+        reservation = Reservation(
+            spot_id=available_spot.id,
+            user_id=current_user.id,
+            vehicle_number=vehicle_number,
+            vehicle_model=vehicle_model,
+            parking_timestamp=datetime.utcnow(),
+            status='active'
+        )
+        
+        # Update spot status to occupied
+        available_spot.status = 'O'
+        available_spot.updated_at = datetime.utcnow()
+        
+        # Save to database
+        db.session.add(reservation)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Parking spot reserved successfully!',
+            'data': {
+                'reservation_id': reservation.id,
+                'spot_number': available_spot.spot_number,
+                'lot_name': lot.prime_location_name,
+                'lot_address': lot.address,
+                'vehicle_number': vehicle_number,
+                'parking_timestamp': reservation.parking_timestamp.isoformat(),
+                'price_per_hour': lot.price_per_hour
+            }
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'message': 'Invalid lot ID provided'
+        }), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error creating reservation: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/user/reservations/<int:reservation_id>/occupy', methods=['POST'])
+@user_required
+def occupy_parking_spot(reservation_id):
+    """Mark a reserved spot as occupied (user has arrived and parked)"""
+    try:
+        # Find user's active reservation
+        reservation = current_user.reservations.filter_by(
+            id=reservation_id, 
+            status='active'
+        ).first()
+        
+        if not reservation:
+            return jsonify({
+                'success': False,
+                'message': 'Active reservation not found'
+            }), 404
+        
+        # Update occupation timestamp (when user actually arrives and parks)
+        reservation.parking_timestamp = datetime.utcnow()
+        reservation.updated_at = datetime.utcnow()
+        
+        # Ensure spot is marked as occupied
+        reservation.parking_spot.status = 'O'
+        reservation.parking_spot.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        duration_minutes = (datetime.utcnow() - reservation.parking_timestamp).total_seconds() / 60
+        
+        return jsonify({
+            'success': True,
+            'message': 'Parking spot occupied successfully!',
+            'data': {
+                'reservation_id': reservation.id,
+                'spot_number': reservation.parking_spot.spot_number,
+                'lot_name': reservation.parking_spot.parking_lot.prime_location_name,
+                'vehicle_number': reservation.vehicle_number,
+                'parking_timestamp': reservation.parking_timestamp.isoformat(),
+                'duration_minutes': int(duration_minutes),
+                'estimated_cost': round(duration_minutes / 60 * reservation.parking_spot.parking_lot.price_per_hour, 2)
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error occupying parking spot: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/user/reservations/<int:reservation_id>/release', methods=['POST'])
+@user_required
+def release_parking_spot(reservation_id):
+    """Release an occupied parking spot and calculate final cost"""
+    try:
+        # Find user's active reservation
+        reservation = current_user.reservations.filter_by(
+            id=reservation_id, 
+            status='active'
+        ).first()
+        
+        if not reservation:
+            return jsonify({
+                'success': False,
+                'message': 'Active reservation not found'
+            }), 404
+        
+        # Set leaving timestamp
+        leaving_time = datetime.utcnow()
+        reservation.leaving_timestamp = leaving_time
+        reservation.status = 'completed'
+        reservation.updated_at = leaving_time
+        
+        # Calculate final cost
+        final_cost = reservation.calculate_cost()
+        
+        # Free up the parking spot
+        reservation.parking_spot.status = 'A'
+        reservation.parking_spot.updated_at = leaving_time
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Parking spot released successfully!',
+            'data': {
+                'reservation_id': reservation.id,
+                'spot_number': reservation.parking_spot.spot_number,
+                'lot_name': reservation.parking_spot.parking_lot.prime_location_name,
+                'vehicle_number': reservation.vehicle_number,
+                'parking_timestamp': reservation.parking_timestamp.isoformat(),
+                'leaving_timestamp': reservation.leaving_timestamp.isoformat(),
+                'duration_minutes': reservation.duration_minutes,
+                'duration_hours': reservation.duration_hours,
+                'final_cost': final_cost,
+                'price_per_hour': reservation.parking_spot.parking_lot.price_per_hour
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error releasing parking spot: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/user/reservations', methods=['GET'])
+@user_required
+def get_user_reservations():
+    """Get user's parking history with filtering and pagination"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 20, type=int), 100)
+        status_filter = request.args.get('status', '').strip()
+        
+        # Build query
+        query = current_user.reservations.order_by(Reservation.created_at.desc())
+        
+        if status_filter and status_filter in ['active', 'completed', 'cancelled']:
+            query = query.filter_by(status=status_filter)
+        
+        # Get pagination
+        pagination = query.paginate(
+            page=page, per_page=per_page, 
+            error_out=False
+        )
+        
+        reservations_data = []
+        for reservation in pagination.items:
+            duration_minutes = 0
+            estimated_cost = 0
+            
+            if reservation.status == 'active':
+                # Calculate current duration and estimated cost
+                duration_minutes = (datetime.utcnow() - reservation.parking_timestamp).total_seconds() / 60
+                estimated_cost = round(duration_minutes / 60 * reservation.parking_spot.parking_lot.price_per_hour, 2)
+            else:
+                duration_minutes = reservation.duration_minutes
+                estimated_cost = reservation.parking_cost or 0
+            
+            reservations_data.append({
+                'id': reservation.id,
+                'spot_number': reservation.parking_spot.spot_number,
+                'lot_name': reservation.parking_spot.parking_lot.prime_location_name,
+                'lot_address': reservation.parking_spot.parking_lot.address,
+                'lot_price_per_hour': reservation.parking_spot.parking_lot.price_per_hour,
+                'status': reservation.status,
+                'vehicle_number': reservation.vehicle_number,
+                'vehicle_model': reservation.vehicle_model,
+                'parking_timestamp': reservation.parking_timestamp.isoformat(),
+                'leaving_timestamp': reservation.leaving_timestamp.isoformat() if reservation.leaving_timestamp else None,
+                'duration_minutes': int(duration_minutes),
+                'duration_hours': reservation.duration_hours if reservation.status == 'completed' else round(duration_minutes / 60, 1),
+                'cost': estimated_cost,
+                'created_at': reservation.created_at.isoformat()
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'reservations': reservations_data,
+                'pagination': {
+                    'page': pagination.page,
+                    'pages': pagination.pages,
+                    'per_page': pagination.per_page,
+                    'total': pagination.total,
+                    'has_next': pagination.has_next,
+                    'has_prev': pagination.has_prev
+                }
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error loading reservations: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/user/reservations/<int:reservation_id>', methods=['GET'])
+@user_required
+def get_reservation_details(reservation_id):
+    """Get detailed information about a specific reservation"""
+    try:
+        reservation = current_user.reservations.filter_by(id=reservation_id).first()
+        
+        if not reservation:
+            return jsonify({
+                'success': False,
+                'message': 'Reservation not found'
+            }), 404
+        
+        duration_minutes = 0
+        estimated_cost = 0
+        
+        if reservation.status == 'active':
+            # Calculate current duration and estimated cost
+            duration_minutes = (datetime.utcnow() - reservation.parking_timestamp).total_seconds() / 60
+            estimated_cost = round(duration_minutes / 60 * reservation.parking_spot.parking_lot.price_per_hour, 2)
+        else:
+            duration_minutes = reservation.duration_minutes
+            estimated_cost = reservation.parking_cost or 0
+        
+        reservation_data = {
+            'id': reservation.id,
+            'spot_number': reservation.parking_spot.spot_number,
+            'lot_id': reservation.parking_spot.parking_lot.id,
+            'lot_name': reservation.parking_spot.parking_lot.prime_location_name,
+            'lot_address': reservation.parking_spot.parking_lot.address,
+            'lot_pin_code': reservation.parking_spot.parking_lot.pin_code,
+            'lot_price_per_hour': reservation.parking_spot.parking_lot.price_per_hour,
+            'lot_description': reservation.parking_spot.parking_lot.description,
+            'status': reservation.status,
+            'vehicle_number': reservation.vehicle_number,
+            'vehicle_model': reservation.vehicle_model,
+            'parking_timestamp': reservation.parking_timestamp.isoformat(),
+            'leaving_timestamp': reservation.leaving_timestamp.isoformat() if reservation.leaving_timestamp else None,
+            'duration_minutes': int(duration_minutes),
+            'duration_hours': reservation.duration_hours if reservation.status == 'completed' else round(duration_minutes / 60, 1),
+            'cost': estimated_cost,
+            'created_at': reservation.created_at.isoformat(),
+            'updated_at': reservation.updated_at.isoformat()
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': reservation_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error loading reservation details: {str(e)}'
         }), 500 

@@ -164,7 +164,10 @@
             </div>
             <div class="bg-gray-50 px-5 py-3">
               <div class="text-sm">
-                <span class="text-gray-500">{{ statistics.reservations?.completed || 0 }} completed bookings</span>
+                <div class="flex justify-between">
+                  <span class="text-green-600 font-medium">Today: ₹{{ statistics.revenue?.today || 0 }}</span>
+                  <span class="text-blue-600">Month: ₹{{ statistics.revenue?.this_month || 0 }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -197,7 +200,7 @@
         <!-- Quick Actions -->
         <div class="mt-8">
           <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <router-link
               to="/admin/parking-lots"
               class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg shadow hover:shadow-md transition-shadow"
@@ -242,26 +245,49 @@
               </div>
             </router-link>
 
-            <button
-              @click="refreshData"
+            <router-link
+              to="/admin/reservations"
               class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg shadow hover:shadow-md transition-shadow"
             >
               <div>
-                <span class="rounded-lg inline-flex p-3 bg-yellow-50 text-yellow-600 ring-4 ring-white">
+                <span class="rounded-lg inline-flex p-3 bg-purple-50 text-purple-600 ring-4 ring-white">
                   <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                   </svg>
                 </span>
               </div>
               <div class="mt-8">
                 <h3 class="text-lg font-medium">
-                  Refresh Data
+                  <span class="absolute inset-0" aria-hidden="true"></span>
+                  View Reservations
                 </h3>
                 <p class="mt-2 text-sm text-gray-500">
-                  Reload dashboard statistics and data.
+                  Monitor all parking reservations and manage bookings.
                 </p>
               </div>
-            </button>
+            </router-link>
+
+            <router-link
+              to="/admin/analytics"
+              class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg shadow hover:shadow-md transition-shadow"
+            >
+              <div>
+                <span class="rounded-lg inline-flex p-3 bg-blue-50 text-blue-600 ring-4 ring-white">
+                  <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                  </svg>
+                </span>
+              </div>
+              <div class="mt-8">
+                <h3 class="text-lg font-medium">
+                  <span class="absolute inset-0" aria-hidden="true"></span>
+                  Analytics & Reports
+                </h3>
+                <p class="mt-2 text-sm text-gray-500">
+                  View revenue analytics, usage patterns, and system reports.
+                </p>
+              </div>
+            </router-link>
           </div>
         </div>
       </div>
@@ -284,6 +310,8 @@ export default {
         { name: 'Dashboard', href: '/admin/dashboard' },
         { name: 'Parking Lots', href: '/admin/parking-lots' },
         { name: 'Users', href: '/admin/users' },
+        { name: 'Reservations', href: '/admin/reservations' },
+        { name: 'Analytics', href: '/admin/analytics' },
         { name: 'Statistics', href: '/admin/statistics' }
       ]
     }
