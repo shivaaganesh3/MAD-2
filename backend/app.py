@@ -1,9 +1,10 @@
-from flask import Flask, jsonify, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, jsonify
 from flask_migrate import Migrate
-from flask_login import LoginManager, current_user
+from flask_cors import CORS
 from datetime import datetime
 import os
+from database import db
+from auth_utils import JWTAuth
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -16,43 +17,18 @@ app.config['SECRET_KEY'] = 'parking-system-secret-key-change-in-production-2024'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
 # Initialize extensions
-db = SQLAlchemy(app)
+db.init_app(app)
 migrate = Migrate(app, db)
 
-# Initialize Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = None  # We'll handle this via API
-login_manager.login_message = None
+# Initialize CORS for cross-origin requests
+CORS(app, 
+     origins=['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'],  # Vue.js dev servers
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+     allow_headers=['Content-Type', 'Authorization'],
+     supports_credentials=True)
 
-# Import models after db initialization
+# Import models after db initialization to avoid circular imports
 from models import User, Admin, ParkingLot, ParkingSpot, Reservation
-
-@login_manager.user_loader
-def load_user(user_id):
-    """Load user for Flask-Login"""
-    # Check if it's an admin user (prefixed with 'admin_')
-    if user_id.startswith('admin_'):
-        admin_id = user_id.replace('admin_', '')
-        try:
-            return Admin.query.get(int(admin_id))
-        except ValueError:
-            return None
-    else:
-        # Regular user
-        try:
-            return User.query.get(int(user_id))
-        except ValueError:
-            return None
-
-@login_manager.unauthorized_handler
-def unauthorized():
-    """Handle unauthorized access for API"""
-    return jsonify({
-        'success': False,
-        'message': 'Authentication required',
-        'error_code': 'UNAUTHORIZED'
-    }), 401
 
 # Register blueprints
 from routes.auth import auth_bp
@@ -100,11 +76,13 @@ def health_check():
         spot_count = ParkingSpot.query.count()
         reservation_count = Reservation.query.count()
         
-        # Authentication status
+        # JWT Authentication status
+        current_user = JWTAuth.get_current_user_from_token()
         auth_status = {
-            'authenticated': current_user.is_authenticated,
-            'user_id': current_user.get_id() if current_user.is_authenticated else None,
-            'user_role': current_user.get_role() if hasattr(current_user, 'get_role') and current_user.is_authenticated else None
+            'authenticated': current_user is not None,
+            'user_id': current_user.id if current_user else None,
+            'user_role': current_user.get_role() if current_user else None,
+            'authentication_method': 'JWT'
         }
         
         return jsonify({
@@ -119,8 +97,8 @@ def health_check():
                 'reservations': reservation_count
             },
             'authentication': auth_status,
-            'flask_login': 'enabled',
-            'session_support': 'enabled'
+            'jwt_auth': 'enabled',
+            'cors': 'enabled'
         })
     except Exception as e:
         return jsonify({

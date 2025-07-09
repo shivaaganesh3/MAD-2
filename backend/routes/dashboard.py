@@ -1,55 +1,17 @@
 """
-Dashboard API routes with role-based access control
+Dashboard API routes with JWT-based role-based access control
 Backend-focused with JSON responses
 """
 
 from flask import Blueprint, jsonify, request
-from flask_login import login_required, current_user
-from functools import wraps
-from models import User, Admin, ParkingLot, ParkingSpot, Reservation, db
+from auth_utils import token_required, admin_required, user_required, get_current_user
+from models import User, Admin, ParkingLot, ParkingSpot, Reservation
+from database import db
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
 
 # Create dashboard blueprint
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/api/dashboard')
-
-def admin_required(f):
-    """Decorator to require admin role"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            return jsonify({
-                'success': False,
-                'message': 'Authentication required'
-            }), 401
-        
-        if not hasattr(current_user, 'get_role') or current_user.get_role() != 'admin':
-            return jsonify({
-                'success': False,
-                'message': 'Admin access required'
-            }), 403
-        
-        return f(*args, **kwargs)
-    return decorated_function
-
-def user_required(f):
-    """Decorator to require user role"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            return jsonify({
-                'success': False,
-                'message': 'Authentication required'
-            }), 401
-        
-        if hasattr(current_user, 'get_role') and current_user.get_role() == 'admin':
-            return jsonify({
-                'success': False,
-                'message': 'User access required (admin not allowed)'
-            }), 403
-        
-        return f(*args, **kwargs)
-    return decorated_function
 
 @dashboard_bp.route('/admin', methods=['GET'])
 @admin_required
@@ -117,7 +79,7 @@ def admin_dashboard():
                 'recent_users': recent_users,
                 'recent_reservations': recent_reservations,
                 'parking_lots': parking_lots,
-                'admin_info': current_user.to_dict()
+                'admin_info': get_current_user().to_dict()
             }
         }), 200
     
@@ -132,6 +94,8 @@ def admin_dashboard():
 def user_dashboard():
     """User dashboard with personal parking information"""
     try:
+        current_user = get_current_user()
+        
         # User's reservation statistics
         user_stats = {
             'total_reservations': current_user.reservations.count(),
@@ -204,9 +168,10 @@ def user_dashboard():
         }), 500
 
 @dashboard_bp.route('/redirect', methods=['GET'])
-@login_required
+@token_required
 def dashboard_redirect():
     """API endpoint to get appropriate dashboard route based on user role"""
+    current_user = get_current_user()
     if hasattr(current_user, 'get_role') and current_user.get_role() == 'admin':
         return jsonify({
             'success': True,
@@ -407,6 +372,8 @@ def get_parking_lot_details(lot_id):
 def create_reservation():
     """Auto-allocate and reserve the first available spot in a parking lot"""
     try:
+        current_user = get_current_user()
+        
         data = request.get_json()
         if not data:
             return jsonify({
@@ -501,6 +468,8 @@ def create_reservation():
 def occupy_parking_spot(reservation_id):
     """Mark a reserved spot as occupied (user has arrived and parked)"""
     try:
+        current_user = get_current_user()
+        
         # Find user's active reservation
         reservation = current_user.reservations.filter_by(
             id=reservation_id, 
@@ -552,6 +521,8 @@ def occupy_parking_spot(reservation_id):
 def release_parking_spot(reservation_id):
     """Release an occupied parking spot and calculate final cost"""
     try:
+        current_user = get_current_user()
+        
         # Find user's active reservation
         reservation = current_user.reservations.filter_by(
             id=reservation_id, 
@@ -609,6 +580,8 @@ def release_parking_spot(reservation_id):
 def get_user_reservations():
     """Get user's parking history with filtering and pagination"""
     try:
+        current_user = get_current_user()
+        
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
         status_filter = request.args.get('status', '').strip()
@@ -682,6 +655,8 @@ def get_user_reservations():
 def get_reservation_details(reservation_id):
     """Get detailed information about a specific reservation"""
     try:
+        current_user = get_current_user()
+        
         reservation = current_user.reservations.filter_by(id=reservation_id).first()
         
         if not reservation:

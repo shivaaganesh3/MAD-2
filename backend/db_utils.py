@@ -3,7 +3,8 @@ Database Utility Functions for Vehicle Parking System
 Provides helper functions for database operations
 """
 
-from app import app, db
+from app import app
+from database import db
 from models import User, Admin, ParkingLot, ParkingSpot, Reservation
 from datetime import datetime
 

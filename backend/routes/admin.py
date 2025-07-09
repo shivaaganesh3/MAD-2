@@ -1,37 +1,18 @@
 """
-Admin Management API Routes
+Admin Management API Routes with JWT Authentication
 Comprehensive admin functionalities for parking lot and user management
 """
 
 from flask import Blueprint, request, jsonify
-from flask_login import login_required, current_user
-from functools import wraps
-from models import User, Admin, ParkingLot, ParkingSpot, Reservation, db
+from auth_utils import admin_required
+from models import User, Admin, ParkingLot, ParkingSpot, Reservation
+from database import db
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
 import re
 
 # Create admin management blueprint
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
-
-def admin_required(f):
-    """Decorator to require admin role"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            return jsonify({
-                'success': False,
-                'message': 'Authentication required'
-            }), 401
-        
-        if not hasattr(current_user, 'get_role') or current_user.get_role() != 'admin':
-            return jsonify({
-                'success': False,
-                'message': 'Admin access required'
-            }), 403
-        
-        return f(*args, **kwargs)
-    return decorated_function
 
 def validate_parking_lot_data(data, lot_id=None):
     """Validate parking lot data"""

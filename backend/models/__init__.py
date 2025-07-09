@@ -1,12 +1,9 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
+
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from database import db
 
-# Import db from app to avoid circular imports
-from app import db
-
-class User(UserMixin, db.Model):
+class User(db.Model):
     """
     User model for registered users who can book parking spots
     Inherits from UserMixin for Flask-Login compatibility
@@ -71,7 +68,7 @@ class User(UserMixin, db.Model):
         return f'<User {self.username}>'
 
 
-class Admin(UserMixin, db.Model):
+class Admin(db.Model):
     """
     Admin model - predefined superuser with root access
     Only one admin should exist in the system

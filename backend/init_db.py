@@ -11,7 +11,8 @@ from datetime import datetime
 # Add the backend directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app import app, db
+from app import app
+from database import db
 from models import User, Admin, ParkingLot, ParkingSpot, Reservation
 
 def create_database():
