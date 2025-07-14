@@ -1074,10 +1074,13 @@ def get_revenue_analytics():
             ParkingLot.prime_location_name,
             func.sum(Reservation.parking_cost).label('total_revenue'),
             func.count(Reservation.id).label('total_reservations')
-        ).join(ParkingSpot).join(Reservation).filter(
-            Reservation.status == 'completed',
-            Reservation.parking_cost.isnot(None)
-        ).group_by(ParkingLot.id).order_by(desc('total_revenue')).all()
+        ).select_from(ParkingLot)\
+        .join(ParkingSpot, ParkingLot.id == ParkingSpot.lot_id)\
+        .join(Reservation, ParkingSpot.id == Reservation.spot_id)\
+        .filter(Reservation.status == 'completed',
+               Reservation.parking_cost.isnot(None))\
+        .group_by(ParkingLot.id)\
+        .order_by(desc('total_revenue')).all()
         
         lot_revenue_data = []
         for lot_name, revenue, reservations in lot_revenue:
@@ -1151,18 +1154,27 @@ def get_usage_analytics():
         # Average session duration by lot
         lot_durations = db.session.query(
             ParkingLot.prime_location_name,
-            func.avg(Reservation.duration_minutes).label('avg_duration'),
+            func.avg(
+                func.julianday(Reservation.leaving_timestamp) - 
+                func.julianday(Reservation.parking_timestamp)
+            ).label('avg_duration_days'),
             func.count(Reservation.id).label('total_sessions')
-        ).join(ParkingSpot).join(Reservation).filter(
-            Reservation.status == 'completed'
-        ).group_by(ParkingLot.id).order_by(desc('avg_duration')).all()
+        ).select_from(ParkingLot)\
+        .join(ParkingSpot, ParkingLot.id == ParkingSpot.lot_id)\
+        .join(Reservation, ParkingSpot.id == Reservation.spot_id)\
+        .filter(Reservation.status == 'completed',
+               Reservation.leaving_timestamp.isnot(None))\
+        .group_by(ParkingLot.id)\
+        .order_by(desc('avg_duration_days')).all()
         
         lot_duration_data = []
-        for lot_name, avg_duration, sessions in lot_durations:
+        for lot_name, avg_duration_days, sessions in lot_durations:
+            # Convert from days to minutes (days * 24 hours * 60 minutes)
+            avg_duration_minutes = (avg_duration_days or 0) * 24 * 60
             lot_duration_data.append({
                 'lot_name': lot_name,
-                'avg_duration_minutes': round(avg_duration or 0, 1),
-                'avg_duration_hours': round((avg_duration or 0) / 60, 1),
+                'avg_duration_minutes': round(avg_duration_minutes, 1),
+                'avg_duration_hours': round(avg_duration_minutes / 60, 1),
                 'total_sessions': sessions
             })
         
