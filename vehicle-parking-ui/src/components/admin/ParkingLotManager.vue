@@ -1,492 +1,543 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Header with Navigation -->
-    <nav class="bg-white shadow-sm border-b">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex items-center">
-            <router-link to="/admin/dashboard" class="flex items-center">
-              <div class="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H7m2 0v-5a2 2 0 012-2h2a2 2 0 012 2v5m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v6.01"></path>
-                </svg>
-              </div>
-              <h1 class="ml-3 text-xl font-semibold text-gray-900">Parking Lot Manager</h1>
-            </router-link>
-          </div>
-          
-          <div class="flex items-center space-x-4">
-            <router-link to="/admin/dashboard" class="text-gray-500 hover:text-gray-700">
-              ← Back to Dashboard
-            </router-link>
-            <button
-              @click="handleLogout"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+  <div class="container-fluid p-0">
+    <!-- Header with Search Bar -->
+    <div class="d-flex justify-content-between align-items-center bg-white shadow-sm border-bottom px-4 py-3">
+      <div class="d-flex align-items-center">
+        <i class="fas fa-building text-primary me-2"></i>
+        <h4 class="mb-0 fw-bold">Parking Lot Manager</h4>
       </div>
-    </nav>
+      <div class="d-flex align-items-center gap-3">
+        <div class="input-group" style="width: 300px;">
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="form-control"
+            placeholder="Search parking lots..."
+            @input="debouncedSearch"
+          />
+          <button class="btn btn-outline-secondary" type="button" @click="loadParkingLots">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+        <button
+          @click="openCreateModal"
+          class="btn btn-primary"
+        >
+          <i class="fas fa-plus me-1"></i>
+          Add Lot
+        </button>
+      </div>
+    </div>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <!-- Header Section -->
-      <div class="md:flex md:items-center md:justify-between mb-6">
-        <div class="flex-1 min-w-0">
-          <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Parking Lots</h2>
-          <p class="mt-1 text-sm text-gray-500">Manage parking lots and their spots</p>
-        </div>
-        <div class="mt-4 flex md:mt-0 md:ml-4">
-          <button
-            @click="showCreateModal = true"
-            class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            Add Parking Lot
-          </button>
-        </div>
-      </div>
-
-      <!-- Search and Filters -->
-      <div class="bg-white shadow rounded-lg mb-6">
-        <div class="px-4 py-5 sm:p-6">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Search</label>
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="Search by name, address, or pin code..."
-                class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Status</label>
-              <select
-                v-model="statusFilter"
-                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-            <div class="flex items-end">
-              <button
-                @click="loadParkingLots"
-                class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-                Search
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center h-64">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-
-      <!-- Error State -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-        <div class="flex">
-          <div class="flex-shrink-0">
-            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-            </svg>
-          </div>
-          <div class="ml-3">
-            <h3 class="text-sm font-medium text-red-800">Error loading parking lots</h3>
-            <p class="mt-2 text-sm text-red-700">{{ error }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Parking Lots Grid -->
-      <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div
-          v-for="lot in parkingLots"
-          :key="lot.id"
-          class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow"
-        >
-          <div class="px-4 py-5 sm:p-6">
-            <!-- Header -->
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg font-medium text-gray-900 truncate">{{ lot.prime_location_name }}</h3>
-              <div class="flex items-center space-x-2">
-                <span
-                  :class="lot.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                >
-                  {{ lot.is_active ? 'Active' : 'Inactive' }}
-                </span>
+    <div class="container-fluid">
+        <div class="p-4">
+          <!-- Statistics Cards -->
+          <div class="row mb-4">
+            <div class="col-xl-3 col-lg-6 mb-3">
+              <div class="card bg-primary bg-gradient text-white h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="card-title text-white-50">Total Lots</h6>
+                      <h3 class="mb-0">{{ totalStats.total || 0 }}</h3>
+                    </div>
+                    <i class="fas fa-building fa-2x opacity-75"></i>
+                  </div>
+                  <div class="mt-2">
+                    <small class="text-white-50">{{ totalStats.active || 0 }} active</small>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <!-- Details -->
-            <div class="space-y-2">
-              <p class="text-sm text-gray-600">
-                <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-                {{ lot.address }}
-              </p>
-              <p class="text-sm text-gray-600">
-                <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                </svg>
-                Pin: {{ lot.pin_code }}
-              </p>
-              <p class="text-sm text-gray-600">
-                <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                </svg>
-                ₹{{ lot.price_per_hour }}/hour
-              </p>
-            </div>
-
-            <!-- Statistics -->
-            <div class="mt-4 grid grid-cols-2 gap-4">
-              <div class="text-center">
-                <div class="text-2xl font-bold text-gray-900">{{ lot.number_of_spots }}</div>
-                <div class="text-xs text-gray-500">Total Spots</div>
-              </div>
-              <div class="text-center">
-                <div class="text-2xl font-bold text-green-600">{{ lot.available_spots }}</div>
-                <div class="text-xs text-gray-500">Available</div>
+            
+            <div class="col-xl-3 col-lg-6 mb-3">
+              <div class="card bg-success bg-gradient text-white h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="card-title text-white-50">Total Spots</h6>
+                      <h3 class="mb-0">{{ totalStats.total_spots || 0 }}</h3>
+                    </div>
+                    <i class="fas fa-parking fa-2x opacity-75"></i>
+                  </div>
+                  <div class="mt-2">
+                    <small class="text-white-50">{{ totalStats.available_spots || 0 }} available</small>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <!-- Occupancy Bar -->
-            <div class="mt-4">
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-600">Occupancy</span>
-                <span class="font-medium">{{ lot.occupancy_rate }}%</span>
-              </div>
-              <div class="mt-1 w-full bg-gray-200 rounded-full h-2">
-                <div
-                  :class="getOccupancyColor(lot.occupancy_rate)"
-                  class="h-2 rounded-full transition-all duration-300"
-                  :style="{ width: `${lot.occupancy_rate}%` }"
-                ></div>
-              </div>
-            </div>
-
-            <!-- Revenue -->
-            <div class="mt-4 pt-4 border-t border-gray-200">
-              <div class="flex justify-between items-center">
-                <span class="text-sm text-gray-600">Total Revenue</span>
-                <span class="text-lg font-semibold text-gray-900">₹{{ lot.total_revenue }}</span>
+            
+            <div class="col-xl-3 col-lg-6 mb-3">
+              <div class="card bg-warning bg-gradient text-white h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="card-title text-white-50">Occupancy</h6>
+                      <h3 class="mb-0">{{ totalStats.occupancy_rate || 0 }}%</h3>
+                    </div>
+                    <i class="fas fa-chart-pie fa-2x opacity-75"></i>
+                  </div>
+                  <div class="mt-2">
+                    <small class="text-white-50">{{ totalStats.occupied_spots || 0 }} occupied</small>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <!-- Actions -->
-            <div class="mt-6 flex space-x-2">
-              <button
-                @click="viewLotDetails(lot)"
-                class="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                View Details
-              </button>
-              <button
-                @click="editLot(lot)"
-                class="flex-1 bg-green-50 text-green-700 hover:bg-green-100 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Edit
-              </button>
-              <button
-                @click="deleteLot(lot)"
-                class="bg-red-50 text-red-700 hover:bg-red-100 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Delete
-              </button>
+            
+            <div class="col-xl-3 col-lg-6 mb-3">
+              <div class="card bg-info bg-gradient text-white h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="card-title text-white-50">Revenue</h6>
+                      <h3 class="mb-0">₹{{ totalStats.total_revenue || 0 }}</h3>
+                    </div>
+                    <i class="fas fa-rupee-sign fa-2x opacity-75"></i>
+                  </div>
+                  <div class="mt-2">
+                    <small class="text-white-50">Total earnings</small>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Empty State -->
-      <div v-if="!loading && !error && parkingLots.length === 0" class="text-center py-12">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H7m2 0v-5a2 2 0 012-2h2a2 2 0 012 2v5m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v6.01"></path>
-        </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">No parking lots</h3>
-        <p class="mt-1 text-sm text-gray-500">Get started by creating a new parking lot.</p>
-        <div class="mt-6">
-          <button
-            @click="showCreateModal = true"
-            class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-          >
-            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            Add Parking Lot
-          </button>
-        </div>
-      </div>
+          <!-- Filters -->
+          <div class="card mb-4">
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Status Filter</label>
+                  <select v-model="statusFilter" class="form-select" @change="loadParkingLots">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                  <button @click="resetFilters" class="btn btn-outline-secondary">
+                    <i class="fas fa-undo me-1"></i>
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <!-- Pagination -->
-      <div v-if="pagination && pagination.pages > 1" class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6 rounded-lg shadow">
-        <div class="flex-1 flex justify-between sm:hidden">
-          <button
-            @click="changePage(pagination.page - 1)"
-            :disabled="!pagination.has_prev"
-            class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <button
-            @click="changePage(pagination.page + 1)"
-            :disabled="!pagination.has_next"
-            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p class="text-sm text-gray-700">
-              Showing {{ (pagination.page - 1) * pagination.per_page + 1 }} to 
-              {{ Math.min(pagination.page * pagination.per_page, pagination.total) }} of 
-              {{ pagination.total }} results
-            </p>
+          <!-- Loading State -->
+          <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height: 300px;">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
           </div>
-          <div>
-            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-              <button
-                @click="changePage(pagination.page - 1)"
-                :disabled="!pagination.has_prev"
-                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                @click="changePage(pagination.page + 1)"
-                :disabled="!pagination.has_next"
-                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </nav>
+
+          <!-- Error State -->
+          <div v-else-if="error" class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {{ error }}
           </div>
+
+          <!-- Parking Lots Grid -->
+          <div v-else class="row">
+            <div
+              v-for="lot in parkingLots"
+              :key="lot.id"
+              class="col-xl-4 col-lg-6 col-md-6 mb-4"
+            >
+              <div class="card h-100 shadow-sm hover-shadow-lg">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h6 class="card-title mb-0 fw-bold">{{ lot.prime_location_name }}</h6>
+                  <span
+                    :class="lot.is_active ? 'badge bg-success' : 'badge bg-danger'"
+                  >
+                    {{ lot.is_active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+                
+                <div class="card-body">
+                  <div class="mb-3">
+                    <p class="text-muted mb-1">
+                      <i class="fas fa-map-marker-alt me-1"></i>
+                      {{ lot.address }}
+                    </p>
+                    <p class="text-muted mb-1">
+                      <i class="fas fa-hashtag me-1"></i>
+                      Pin: {{ lot.pin_code }}
+                    </p>
+                    <p class="text-muted mb-0">
+                      <i class="fas fa-rupee-sign me-1"></i>
+                      ₹{{ lot.price_per_hour }}/hour
+                    </p>
+                  </div>
+
+                  <!-- Spot Statistics -->
+                  <div class="row mb-3">
+                    <div class="col-6 text-center">
+                      <div class="bg-light p-2 rounded">
+                        <h5 class="mb-0 text-primary">{{ lot.number_of_spots }}</h5>
+                        <small class="text-muted">Total</small>
+                      </div>
+                    </div>
+                    <div class="col-6 text-center">
+                      <div class="bg-light p-2 rounded">
+                        <h5 class="mb-0 text-success">{{ lot.available_spots }}</h5>
+                        <small class="text-muted">Available</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Occupancy Progress -->
+                  <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                      <small class="text-muted">Occupancy</small>
+                      <small class="fw-bold">{{ lot.occupancy_rate }}%</small>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                      <div
+                        class="progress-bar"
+                        :class="getOccupancyColor(lot.occupancy_rate)"
+                        :style="{ width: `${lot.occupancy_rate}%` }"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <!-- Revenue -->
+                  <div class="border-top pt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <span class="text-muted">Revenue</span>
+                      <span class="fw-bold h6 mb-0">₹{{ lot.total_revenue }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="card-footer bg-transparent">
+                  <div class="d-grid gap-2 d-md-flex">
+                    <button
+                      @click="viewLotDetails(lot)"
+                      class="btn btn-outline-primary btn-sm flex-fill"
+                    >
+                      <i class="fas fa-eye me-1"></i>
+                      View
+                    </button>
+                    <button
+                      @click="editLot(lot)"
+                      class="btn btn-outline-success btn-sm flex-fill"
+                    >
+                      <i class="fas fa-edit me-1"></i>
+                      Edit
+                    </button>
+                    <button
+                      @click="deleteLot(lot)"
+                      class="btn btn-outline-danger btn-sm"
+                    >
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div v-if="!loading && !error && parkingLots.length === 0" class="text-center py-5">
+            <i class="fas fa-building fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No parking lots found</h5>
+            <p class="text-muted">Get started by creating your first parking lot.</p>
+            <button
+              @click="openCreateModal"
+              class="btn btn-primary"
+            >
+              <i class="fas fa-plus me-1"></i>
+              Add Parking Lot
+            </button>
+          </div>
+
+          <!-- Pagination -->
+          <nav v-if="pagination && pagination.pages > 1" aria-label="Parking lots pagination">
+            <ul class="pagination justify-content-center">
+              <li class="page-item" :class="{ disabled: !pagination.has_prev }">
+                <button class="page-link" @click="changePage(pagination.page - 1)" :disabled="!pagination.has_prev">
+                  Previous
+                </button>
+              </li>
+              <li class="page-item active">
+                <span class="page-link">{{ pagination.page }}</span>
+              </li>
+              <li class="page-item" :class="{ disabled: !pagination.has_next }">
+                <button class="page-link" @click="changePage(pagination.page + 1)" :disabled="!pagination.has_next">
+                  Next
+                </button>
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
     </div>
 
     <!-- Create/Edit Modal -->
-    <div v-if="showCreateModal || showEditModal" class="fixed inset-0 z-10 overflow-y-auto">
-      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+    <div v-if="showCreateModal || showEditModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5);" @click.self="closeModal">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
           <form @submit.prevent="submitForm">
-            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+            <div class="modal-header">
+              <h5 class="modal-title">
+                <i class="fas fa-building me-2"></i>
                 {{ showCreateModal ? 'Create Parking Lot' : 'Edit Parking Lot' }}
-              </h3>
-              
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700">Location Name *</label>
+              </h5>
+              <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label">Location Name *</label>
                   <input
                     v-model="lotForm.prime_location_name"
                     type="text"
-                    required
-                    class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                    class="form-control"
                     placeholder="e.g., City Center Mall"
+                    required
                   />
                 </div>
                 
-                <div>
-                  <label class="block text-sm font-medium text-gray-700">Address *</label>
+                <div class="col-12">
+                  <label class="form-label">Address *</label>
                   <textarea
                     v-model="lotForm.address"
-                    required
+                    class="form-control"
                     rows="3"
-                    class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                     placeholder="Full address..."
+                    required
                   ></textarea>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700">Pin Code *</label>
-                    <input
-                      v-model="lotForm.pin_code"
-                      type="text"
-                      required
-                      pattern="[0-9]{6}"
-                      maxlength="6"
-                      class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                      placeholder="110001"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700">Price per Hour *</label>
-                    <input
-                      v-model="lotForm.price_per_hour"
-                      type="number"
-                      required
-                      min="1"
-                      max="10000"
-                      step="0.01"
-                      class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                      placeholder="50"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label class="block text-sm font-medium text-gray-700">Number of Spots *</label>
+                <div class="col-md-6">
+                  <label class="form-label">Pin Code *</label>
                   <input
-                    v-model="lotForm.number_of_spots"
-                    type="number"
+                    v-model="lotForm.pin_code"
+                    type="text"
+                    class="form-control"
+                    placeholder="110001"
+                    pattern="[0-9]{6}"
+                    maxlength="6"
                     required
-                    min="1"
-                    max="1000"
-                    class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                    placeholder="50"
                   />
                 </div>
                 
-                <div>
-                  <label class="block text-sm font-medium text-gray-700">Description</label>
+                <div class="col-md-6">
+                  <label class="form-label">Price per Hour *</label>
+                  <div class="input-group">
+                    <span class="input-group-text">₹</span>
+                    <input
+                      v-model="lotForm.price_per_hour"
+                      type="number"
+                      class="form-control"
+                      placeholder="50"
+                      min="1"
+                      max="10000"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <label class="form-label">Number of Spots *</label>
+                  <input
+                    v-model="lotForm.number_of_spots"
+                    type="number"
+                    class="form-control"
+                    placeholder="50"
+                    min="1"
+                    max="1000"
+                    required
+                  />
+                </div>
+                
+                <div class="col-12">
+                  <label class="form-label">Description</label>
                   <textarea
                     v-model="lotForm.description"
+                    class="form-control"
                     rows="2"
-                    class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                     placeholder="Optional description..."
                   ></textarea>
                 </div>
                 
-                <div class="flex items-center">
-                  <input
-                    v-model="lotForm.is_active"
-                    type="checkbox"
-                    class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                  />
-                  <label class="ml-2 block text-sm text-gray-900">Active</label>
+                <div class="col-12">
+                  <div class="form-check">
+                    <input
+                      v-model="lotForm.is_active"
+                      type="checkbox"
+                      class="form-check-input"
+                      id="isActive"
+                    />
+                    <label class="form-check-label" for="isActive">
+                      Active
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
             
-            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button
-                type="submit"
-                :disabled="submitting"
-                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-              >
-                {{ submitting ? 'Saving...' : (showCreateModal ? 'Create' : 'Update') }}
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" @click="closeModal">
+                Cancel
               </button>
               <button
-                type="button"
-                @click="closeModal"
-                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                type="submit"
+                class="btn btn-primary"
+                :disabled="submitting"
               >
-                Cancel
+                <span v-if="submitting" class="spinner-border spinner-border-sm me-1"></span>
+                {{ submitting ? 'Saving...' : (showCreateModal ? 'Create' : 'Update') }}
               </button>
             </div>
           </form>
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script>
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { adminAPI, authAPI } from '../../services/api'
 
 export default {
   name: 'ParkingLotManager',
-  data() {
-    return {
-      loading: true,
-      error: '',
-      parkingLots: [],
-      pagination: null,
-      searchQuery: '',
-      statusFilter: 'all',
-      currentPage: 1,
-      perPage: 9,
-      
-      // Modals
-      showCreateModal: false,
-      showEditModal: false,
-      submitting: false,
-      editingLot: null,
-      
-      // Form
-      lotForm: {
-        prime_location_name: '',
-        address: '',
-        pin_code: '',
-        price_per_hour: '',
-        number_of_spots: '',
-        description: '',
-        is_active: true
+  setup() {
+    const router = useRouter()
+    
+    // Reactive data
+    const loading = ref(true)
+    const error = ref('')
+    const parkingLots = ref([])
+    const pagination = ref(null)
+    const searchQuery = ref('')
+    const statusFilter = ref('all')
+    const currentPage = ref(1)
+    const perPage = ref(9)
+    
+    // Modals
+    const showCreateModal = ref(false)
+    const showEditModal = ref(false)
+    const submitting = ref(false)
+    const editingLot = ref(null)
+    
+    // Form
+    const lotForm = reactive({
+      prime_location_name: '',
+      address: '',
+      pin_code: '',
+      price_per_hour: '',
+      number_of_spots: '',
+      description: '',
+      is_active: true
+    })
+
+    // Computed stats
+    const totalStats = computed(() => {
+      const stats = {
+        total: parkingLots.value.length,
+        active: 0,
+        total_spots: 0,
+        available_spots: 0,
+        occupied_spots: 0,
+        occupancy_rate: 0,
+        total_revenue: 0
       }
-    }
-  },
-  async mounted() {
-    await this.loadParkingLots()
-  },
-  methods: {
-    async loadParkingLots() {
+      
+      parkingLots.value.forEach(lot => {
+        if (lot.is_active) stats.active++
+        stats.total_spots += lot.number_of_spots || 0
+        stats.available_spots += lot.available_spots || 0
+        stats.occupied_spots += (lot.number_of_spots || 0) - (lot.available_spots || 0)
+        stats.total_revenue += lot.total_revenue || 0
+      })
+      
+      if (stats.total_spots > 0) {
+        stats.occupancy_rate = Math.round((stats.occupied_spots / stats.total_spots) * 100)
+      }
+      
+      return stats
+    })
+
+    // Methods
+    const loadParkingLots = async () => {
       try {
-        this.loading = true
-        this.error = ''
+        loading.value = true
+        error.value = ''
 
         const params = {
-          page: this.currentPage,
-          per_page: this.perPage,
-          search: this.searchQuery,
-          status: this.statusFilter
+          page: currentPage.value,
+          per_page: perPage.value,
+          search: searchQuery.value,
+          status: statusFilter.value
         }
 
         const response = await adminAPI.getParkingLots(params)
         
         if (response.data.success) {
-          this.parkingLots = response.data.data.parking_lots
-          this.pagination = response.data.data.pagination
+          parkingLots.value = response.data.data.parking_lots
+          pagination.value = response.data.data.pagination
         } else {
-          this.error = response.data.message
+          error.value = response.data.message
         }
       } catch (err) {
-        this.error = err.response?.data?.message || 'Failed to load parking lots'
+        error.value = err.response?.data?.message || 'Failed to load parking lots'
       } finally {
-        this.loading = false
+        loading.value = false
       }
-    },
+    }
     
-    getOccupancyColor(rate) {
-      if (rate < 50) return 'bg-green-500'
-      if (rate < 80) return 'bg-yellow-500'
-      return 'bg-red-500'
-    },
-    
-    changePage(page) {
-      if (page >= 1 && page <= this.pagination.pages) {
-        this.currentPage = page
-        this.loadParkingLots()
+    const debouncedSearch = (() => {
+      let timeout
+      return () => {
+        clearTimeout(timeout)
+        timeout = setTimeout(() => {
+          currentPage.value = 1
+          loadParkingLots()
+        }, 500)
       }
-    },
+    })()
     
-    editLot(lot) {
-      this.editingLot = lot
-      this.lotForm = { ...lot }
-      this.showEditModal = true
-    },
+    const getOccupancyColor = (rate) => {
+      if (rate < 50) return 'bg-success'
+      if (rate < 80) return 'bg-warning'
+      return 'bg-danger'
+    }
     
-    async deleteLot(lot) {
+    const changePage = (page) => {
+      if (page >= 1 && page <= pagination.value.pages) {
+        currentPage.value = page
+        loadParkingLots()
+      }
+    }
+    
+    const resetFilters = () => {
+      searchQuery.value = ''
+      statusFilter.value = 'all'
+      currentPage.value = 1
+      loadParkingLots()
+    }
+    
+    const openCreateModal = () => {
+      console.log('Opening create modal...')
+      resetForm()
+      showCreateModal.value = true
+      console.log('showCreateModal.value is now:', showCreateModal.value)
+    }
+    
+    const editLot = (lot) => {
+      editingLot.value = lot
+      Object.assign(lotForm, lot)
+      showEditModal.value = true
+    }
+    
+    const deleteLot = async (lot) => {
       if (!confirm(`Are you sure you want to delete "${lot.prime_location_name}"? This action cannot be undone.`)) {
         return
       }
@@ -495,29 +546,30 @@ export default {
         const response = await adminAPI.deleteParkingLot(lot.id)
         if (response.data.success) {
           alert('Parking lot deleted successfully')
-          this.loadParkingLots()
+          loadParkingLots()
         } else {
           alert(response.data.message)
         }
       } catch (err) {
         alert(err.response?.data?.message || 'Failed to delete parking lot')
       }
-    },
+    }
     
-    viewLotDetails(lot) {
-      // Navigate to detailed view (you can implement this later)
+    const viewLotDetails = (lot) => {
       alert(`Viewing details for ${lot.prime_location_name}`)
-    },
+    }
     
-    closeModal() {
-      this.showCreateModal = false
-      this.showEditModal = false
-      this.editingLot = null
-      this.resetForm()
-    },
+    const closeModal = () => {
+      console.log('Closing modal...')
+      showCreateModal.value = false
+      showEditModal.value = false
+      editingLot.value = null
+      resetForm()
+      console.log('Modal closed, showCreateModal.value is now:', showCreateModal.value)
+    }
     
-    resetForm() {
-      this.lotForm = {
+    const resetForm = () => {
+      Object.assign(lotForm, {
         prime_location_name: '',
         address: '',
         pin_code: '',
@@ -525,24 +577,24 @@ export default {
         number_of_spots: '',
         description: '',
         is_active: true
-      }
-    },
+      })
+    }
     
-    async submitForm() {
+    const submitForm = async () => {
       try {
-        this.submitting = true
+        submitting.value = true
         
         let response
-        if (this.showCreateModal) {
-          response = await adminAPI.createParkingLot(this.lotForm)
+        if (showCreateModal.value) {
+          response = await adminAPI.createParkingLot(lotForm)
         } else {
-          response = await adminAPI.updateParkingLot(this.editingLot.id, this.lotForm)
+          response = await adminAPI.updateParkingLot(editingLot.value.id, lotForm)
         }
         
         if (response.data.success) {
           alert(response.data.message)
-          this.closeModal()
-          this.loadParkingLots()
+          closeModal()
+          loadParkingLots()
         } else {
           alert(response.data.message || 'Operation failed')
         }
@@ -553,19 +605,96 @@ export default {
           alert(err.response?.data?.message || 'Operation failed')
         }
       } finally {
-        this.submitting = false
+        submitting.value = false
       }
-    },
+    }
     
-    async handleLogout() {
-      try {
-        await authAPI.logout()
-        this.$router.push('/login')
-      } catch (err) {
-        console.error('Logout failed:', err)
-        this.$router.push('/login')
-      }
+
+
+    // Lifecycle
+    onMounted(() => {
+      loadParkingLots()
+    })
+
+    return {
+      loading,
+      error,
+      parkingLots,
+      pagination,
+      searchQuery,
+      statusFilter,
+      currentPage,
+      perPage,
+      showCreateModal,
+      showEditModal,
+      submitting,
+      editingLot,
+      lotForm,
+      totalStats,
+      loadParkingLots,
+      debouncedSearch,
+      getOccupancyColor,
+      changePage,
+      resetFilters,
+      openCreateModal,
+      editLot,
+      deleteLot,
+      viewLotDetails,
+      closeModal,
+      resetForm,
+      submitForm
     }
   }
 }
-</script> 
+</script>
+
+<style scoped>
+.hover-shadow-lg:hover {
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175) !important;
+  transition: box-shadow 0.15s ease-in-out;
+}
+
+.nav-link.active {
+  background-color: rgba(13, 110, 253, 0.1);
+  color: #0d6efd !important;
+  font-weight: 600;
+}
+
+.nav-link:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 0.375rem;
+}
+
+.card {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+.modal {
+  z-index: 1050;
+}
+
+.modal-dialog {
+  margin: 1.75rem auto;
+  max-width: 800px;
+}
+
+.modal-content {
+  background-clip: padding-box;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 0.3rem;
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.5);
+}
+
+.progress {
+  background-color: #e9ecef;
+}
+
+.bg-gradient {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
+}
+</style> 

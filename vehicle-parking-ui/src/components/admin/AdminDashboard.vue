@@ -1,293 +1,249 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Navigation Header -->
-    <nav class="bg-white shadow-sm border-b">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex items-center">
-            <div class="flex-shrink-0 flex items-center">
-              <div class="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H7m2 0v-5a2 2 0 012-2h2a2 2 0 012 2v5m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v6.01"></path>
-                </svg>
+  <div class="admin-dashboard">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+      <div>
+        <h1 class="h3 mb-1 fw-bold text-dark">
+          <i class="fas fa-crown me-2 text-warning"></i>Admin Dashboard
+        </h1>
+        <p class="text-muted mb-0">Welcome back, {{ user?.username || 'Admin' }}! Manage your parking system.</p>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-warning-subtle text-warning px-3 py-2">
+          <i class="fas fa-crown me-1"></i>{{ user?.username || 'Admin' }}
+        </span>
+        <button @click="refreshData" class="btn btn-outline-primary btn-sm">
+          <i class="fas fa-sync-alt me-1"></i>Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="text-center py-5">
+      <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-muted">Loading dashboard data...</p>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
+      <i class="fas fa-exclamation-triangle me-3 fs-4"></i>
+      <div class="flex-fill">
+        <h5 class="alert-heading mb-1">Unable to load dashboard</h5>
+        <p class="mb-2">{{ error }}</p>
+        <button @click="loadDashboard" class="btn btn-outline-danger btn-sm">
+          <i class="fas fa-redo me-1"></i>Retry
+        </button>
+      </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div v-else class="dashboard-content">
+      <!-- Admin Statistics Cards -->
+      <div class="row g-4 mb-4">
+        <div class="col-md-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100 stat-card bg-primary text-white">
+            <div class="card-body d-flex align-items-center">
+              <div class="flex-fill">
+                <h3 class="mb-1 fw-bold">{{ statistics.users?.total || 0 }}</h3>
+                <p class="mb-0 opacity-75">Total Users</p>
               </div>
-              <h1 class="ml-3 text-xl font-semibold text-gray-900">Admin Dashboard</h1>
+              <div class="stat-icon">
+                <i class="fas fa-users fa-2x opacity-75"></i>
+              </div>
             </div>
-            
-            <!-- Navigation Links -->
-            <div class="hidden md:ml-8 md:flex md:space-x-8">
-              <router-link
-                v-for="item in navigation"
-                :key="item.name"
-                :to="item.href"
-                class="inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2"
-                :class="$route.path === item.href 
-                  ? 'border-indigo-500 text-gray-900' 
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
-              >
-                {{ item.name }}
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100 stat-card bg-success text-white">
+            <div class="card-body d-flex align-items-center">
+              <div class="flex-fill">
+                <h3 class="mb-1 fw-bold">{{ statistics.parking_lots?.total || 0 }}</h3>
+                <p class="mb-0 opacity-75">Parking Lots</p>
+              </div>
+              <div class="stat-icon">
+                <i class="fas fa-building fa-2x opacity-75"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100 stat-card bg-warning text-white">
+            <div class="card-body d-flex align-items-center">
+              <div class="flex-fill">
+                <h3 class="mb-1 fw-bold">{{ statistics.parking_spots?.available || 0 }}</h3>
+                <p class="mb-0 opacity-75">Available Spots</p>
+              </div>
+              <div class="stat-icon">
+                <i class="fas fa-parking fa-2x opacity-75"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100 stat-card bg-info text-white">
+            <div class="card-body d-flex align-items-center">
+              <div class="flex-fill">
+                <h3 class="mb-1 fw-bold">₹{{ statistics.revenue?.total || 0 }}</h3>
+                <p class="mb-0 opacity-75">Total Revenue</p>
+              </div>
+              <div class="stat-icon">
+                <i class="fas fa-rupee-sign fa-2x opacity-75"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Status Alert -->
+      <div v-if="statistics.system_status" class="alert alert-success border-0 shadow-sm mb-4" role="alert">
+        <div class="d-flex align-items-start">
+          <div class="me-3">
+            <i class="fas fa-check-circle fa-2x text-success"></i>
+          </div>
+          <div class="flex-fill">
+            <h5 class="alert-heading mb-2">
+              <i class="fas fa-circle text-success me-2" style="font-size: 0.5rem;"></i>
+              System Status: Online
+            </h5>
+            <div class="row align-items-center">
+              <div class="col-lg-8">
+                <p class="mb-2">
+                  <strong class="text-dark">All systems operational</strong>
+                  <span class="badge bg-success-subtle text-success ms-2">{{ statistics.users?.active || 0 }} Active Users</span>
+                </p>
+                <div class="small text-muted mb-2">
+                  <div class="d-flex flex-wrap gap-3">
+                    <span><i class="fas fa-server me-1"></i>Server: Healthy</span>
+                    <span><i class="fas fa-database me-1"></i>Database: Connected</span>
+                    <span><i class="fas fa-wifi me-1"></i>API: Responsive</span>
+                  </div>
+                </div>
+                <p class="mb-0 small text-muted">
+                  <i class="fas fa-clock me-1"></i>Last updated: {{ new Date().toLocaleString() }}
+                </p>
+              </div>
+              <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                <button @click="loadDashboard" class="btn btn-success btn-lg px-4">
+                  <i class="fas fa-sync-alt me-2"></i>Refresh Status
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <!-- Quick Actions -->
+        <div class="col-lg-8">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center py-3">
+              <h5 class="mb-0 fw-bold">
+                <i class="fas fa-bolt me-2 text-primary"></i>Quick Actions
+              </h5>
+              <span class="badge bg-primary-subtle text-primary">Management Tools</span>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <router-link to="/admin/parking-lots" class="text-decoration-none">
+                    <div class="quick-action-card p-3 rounded border h-100 d-flex align-items-center">
+                      <div class="action-icon me-3">
+                        <i class="fas fa-building fa-2x text-primary"></i>
+                      </div>
+                      <div class="flex-fill">
+                        <h6 class="mb-1 fw-bold">Manage Parking Lots</h6>
+                        <p class="mb-0 small text-muted">Create, edit, and manage parking locations</p>
+                      </div>
+                      <i class="fas fa-chevron-right text-muted"></i>
+                    </div>
+                  </router-link>
+                </div>
+                <div class="col-md-6">
+                  <router-link to="/admin/users" class="text-decoration-none">
+                    <div class="quick-action-card p-3 rounded border h-100 d-flex align-items-center">
+                      <div class="action-icon me-3">
+                        <i class="fas fa-users fa-2x text-success"></i>
+                      </div>
+                      <div class="flex-fill">
+                        <h6 class="mb-1 fw-bold">Manage Users</h6>
+                        <p class="mb-0 small text-muted">View and manage user accounts</p>
+                      </div>
+                      <i class="fas fa-chevron-right text-muted"></i>
+                    </div>
+                  </router-link>
+                </div>
+                <div class="col-md-6">
+                  <router-link to="/admin/reservations" class="text-decoration-none">
+                    <div class="quick-action-card p-3 rounded border h-100 d-flex align-items-center">
+                      <div class="action-icon me-3">
+                        <i class="fas fa-clipboard-list fa-2x text-warning"></i>
+                      </div>
+                      <div class="flex-fill">
+                        <h6 class="mb-1 fw-bold">View Reservations</h6>
+                        <p class="mb-0 small text-muted">Monitor all parking reservations</p>
+                      </div>
+                      <i class="fas fa-chevron-right text-muted"></i>
+                    </div>
+                  </router-link>
+                </div>
+                <div class="col-md-6">
+                  <router-link to="/admin/analytics" class="text-decoration-none">
+                    <div class="quick-action-card p-3 rounded border h-100 d-flex align-items-center">
+                      <div class="action-icon me-3">
+                        <i class="fas fa-chart-line fa-2x text-info"></i>
+                      </div>
+                      <div class="flex-fill">
+                        <h6 class="mb-1 fw-bold">Analytics & Reports</h6>
+                        <p class="mb-0 small text-muted">View trends and system insights</p>
+                      </div>
+                      <i class="fas fa-chevron-right text-muted"></i>
+                    </div>
+                  </router-link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="col-lg-4">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center py-3">
+              <h5 class="mb-0 fw-bold">
+                <i class="fas fa-activity me-2 text-primary"></i>Recent Activity
+              </h5>
+              <router-link to="/admin/reservations" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-external-link-alt me-1"></i>View All
               </router-link>
             </div>
-          </div>
-
-          <!-- User Menu -->
-          <div class="flex items-center space-x-4">
-            <span class="text-sm text-gray-700">Welcome, {{ user.username }}</span>
-            <button
-              @click="handleLogout"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-    </nav>
-
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center h-64">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-
-      <!-- Error State -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-md p-4">
-        <div class="flex">
-          <div class="flex-shrink-0">
-            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-            </svg>
-          </div>
-          <div class="ml-3">
-            <h3 class="text-sm font-medium text-red-800">Error loading dashboard</h3>
-            <p class="mt-2 text-sm text-red-700">{{ error }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Dashboard Content -->
-      <div v-else>
-        <!-- Statistics Cards -->
-        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <!-- Users Card -->
-          <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="p-5">
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-                  </svg>
-                </div>
-                <div class="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt class="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                    <dd class="text-lg font-medium text-gray-900">{{ statistics.users?.total || 0 }}</dd>
-                  </dl>
+            <div class="card-body">
+              <div v-if="!statistics.recent_activity || statistics.recent_activity.length === 0" class="text-center py-4">
+                <i class="fas fa-chart-line text-muted fa-2x mb-3"></i>
+                <h6 class="text-muted">No Recent Activity</h6>
+                <p class="text-muted mb-0 small">System activity will appear here.</p>
+              </div>
+              <div v-else class="recent-activity">
+                <div 
+                  v-for="(activity, index) in (statistics.recent_activity || []).slice(0, 5)" 
+                  :key="index"
+                  class="activity-item p-2 rounded mb-2"
+                  :class="{'border-bottom': index < Math.min((statistics.recent_activity || []).length, 5) - 1}"
+                >
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-fill">
+                      <h6 class="mb-1 small fw-medium">{{ activity.type || 'System Event' }}</h6>
+                      <p class="mb-1 small text-muted">{{ activity.description || 'Recent system activity' }}</p>
+                      <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>{{ activity.timestamp || 'Just now' }}
+                      </small>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary small">New</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="bg-gray-50 px-5 py-3">
-              <div class="text-sm">
-                <span class="text-green-600 font-medium">{{ statistics.users?.active || 0 }} active</span>
-                <span class="text-gray-500"> / {{ statistics.users?.inactive || 0 }} inactive</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Parking Lots Card -->
-          <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="p-5">
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H7m2 0v-5a2 2 0 012-2h2a2 2 0 012 2v5m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v6.01"></path>
-                  </svg>
-                </div>
-                <div class="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt class="text-sm font-medium text-gray-500 truncate">Parking Lots</dt>
-                    <dd class="text-lg font-medium text-gray-900">{{ statistics.parking_lots?.total || 0 }}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-            <div class="bg-gray-50 px-5 py-3">
-              <div class="text-sm">
-                <span class="text-green-600 font-medium">{{ statistics.parking_lots?.active || 0 }} active</span>
-                <span class="text-gray-500"> / {{ statistics.parking_lots?.inactive || 0 }} inactive</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Parking Spots Card -->
-          <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="p-5">
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                  </svg>
-                </div>
-                <div class="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt class="text-sm font-medium text-gray-500 truncate">Parking Spots</dt>
-                    <dd class="text-lg font-medium text-gray-900">{{ statistics.parking_spots?.total || 0 }}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-            <div class="bg-gray-50 px-5 py-3">
-              <div class="text-sm">
-                <span class="text-green-600 font-medium">{{ statistics.parking_spots?.available || 0 }} available</span>
-                <span class="text-red-600"> / {{ statistics.parking_spots?.occupied || 0 }} occupied</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Revenue Card -->
-          <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="p-5">
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                  </svg>
-                </div>
-                <div class="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt class="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
-                    <dd class="text-lg font-medium text-gray-900">₹{{ statistics.revenue?.total || 0 }}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-            <div class="bg-gray-50 px-5 py-3">
-              <div class="text-sm">
-                <div class="flex justify-between">
-                  <span class="text-green-600 font-medium">Today: ₹{{ statistics.revenue?.today || 0 }}</span>
-                  <span class="text-blue-600">Month: ₹{{ statistics.revenue?.this_month || 0 }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Occupancy Rate -->
-        <div v-if="statistics.parking_spots?.total > 0" class="mt-8">
-          <div class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">System Occupancy Rate</h3>
-            <div class="flex items-center">
-              <div class="flex-1">
-                <div class="bg-gray-200 rounded-full h-2">
-                  <div 
-                    class="h-2 rounded-full transition-all duration-300"
-                    :class="getOccupancyColor(statistics.parking_spots.occupancy_rate)"
-                    :style="{ width: `${statistics.parking_spots.occupancy_rate}%` }"
-                  ></div>
-                </div>
-              </div>
-              <div class="ml-4">
-                <span class="text-2xl font-bold text-gray-900">{{ statistics.parking_spots.occupancy_rate }}%</span>
-              </div>
-            </div>
-            <div class="mt-2 text-sm text-gray-600">
-              {{ statistics.parking_spots.occupied }} of {{ statistics.parking_spots.total }} spots occupied
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="mt-8">
-          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <router-link
-              to="/admin/parking-lots"
-              class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg shadow hover:shadow-md transition-shadow"
-            >
-              <div>
-                <span class="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 ring-4 ring-white">
-                  <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H7m2 0v-5a2 2 0 012-2h2a2 2 0 012 2v5m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v6.01"></path>
-                  </svg>
-                </span>
-              </div>
-              <div class="mt-8">
-                <h3 class="text-lg font-medium">
-                  <span class="absolute inset-0" aria-hidden="true"></span>
-                  Manage Parking Lots
-                </h3>
-                <p class="mt-2 text-sm text-gray-500">
-                  Create, edit, and manage parking lots and their spots.
-                </p>
-              </div>
-            </router-link>
-
-            <router-link
-              to="/admin/users"
-              class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg shadow hover:shadow-md transition-shadow"
-            >
-              <div>
-                <span class="rounded-lg inline-flex p-3 bg-green-50 text-green-600 ring-4 ring-white">
-                  <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-                  </svg>
-                </span>
-              </div>
-              <div class="mt-8">
-                <h3 class="text-lg font-medium">
-                  <span class="absolute inset-0" aria-hidden="true"></span>
-                  Manage Users
-                </h3>
-                <p class="mt-2 text-sm text-gray-500">
-                  View user details, manage accounts, and monitor activity.
-                </p>
-              </div>
-            </router-link>
-
-            <router-link
-              to="/admin/reservations"
-              class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg shadow hover:shadow-md transition-shadow"
-            >
-              <div>
-                <span class="rounded-lg inline-flex p-3 bg-purple-50 text-purple-600 ring-4 ring-white">
-                  <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                </span>
-              </div>
-              <div class="mt-8">
-                <h3 class="text-lg font-medium">
-                  <span class="absolute inset-0" aria-hidden="true"></span>
-                  View Reservations
-                </h3>
-                <p class="mt-2 text-sm text-gray-500">
-                  Monitor all parking reservations and manage bookings.
-                </p>
-              </div>
-            </router-link>
-
-            <router-link
-              to="/admin/analytics"
-              class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg shadow hover:shadow-md transition-shadow"
-            >
-              <div>
-                <span class="rounded-lg inline-flex p-3 bg-blue-50 text-blue-600 ring-4 ring-white">
-                  <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </span>
-              </div>
-              <div class="mt-8">
-                <h3 class="text-lg font-medium">
-                  <span class="absolute inset-0" aria-hidden="true"></span>
-                  Analytics & Reports
-                </h3>
-                <p class="mt-2 text-sm text-gray-500">
-                  View revenue analytics, usage patterns, and system reports.
-                </p>
-              </div>
-            </router-link>
           </div>
         </div>
       </div>
@@ -296,34 +252,29 @@
 </template>
 
 <script>
-import { adminAPI, authAPI } from '../../services/api'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { adminAPI, authAPI, authHelpers } from '../../services/api'
 
 export default {
   name: 'AdminDashboard',
-  data() {
-    return {
-      loading: true,
-      error: '',
-      statistics: {},
-      user: { username: 'Admin' },
-      navigation: [
-        { name: 'Dashboard', href: '/admin/dashboard' },
-        { name: 'Parking Lots', href: '/admin/parking-lots' },
-        { name: 'Users', href: '/admin/users' },
-        { name: 'Reservations', href: '/admin/reservations' },
-        { name: 'Analytics', href: '/admin/analytics' },
-        { name: 'Statistics', href: '/admin/statistics' }
-      ]
-    }
-  },
-  async mounted() {
-    await this.loadDashboard()
-  },
-  methods: {
-    async loadDashboard() {
+  setup() {
+    const router = useRouter()
+    
+    // Reactive data
+    const loading = ref(true)
+    const error = ref('')
+    const statistics = ref({})
+    const user = ref({ username: 'Admin' })
+
+    // Computed properties
+    const currentUser = computed(() => authHelpers.getCurrentUser())
+
+    // Load dashboard data
+    const loadDashboard = async () => {
       try {
-        this.loading = true
-        this.error = ''
+        loading.value = true
+        error.value = ''
 
         const [statsResponse, profileResponse] = await Promise.all([
           adminAPI.getStatistics(),
@@ -331,35 +282,218 @@ export default {
         ])
 
         if (statsResponse.data.success) {
-          this.statistics = statsResponse.data.data
+          statistics.value = statsResponse.data.data
+          // Set system_status to true by default for the status alert
+          statistics.value.system_status = true
         }
 
         if (profileResponse.data.success) {
-          this.user = profileResponse.data.user
+          user.value = profileResponse.data.user
         }
       } catch (err) {
-        this.error = err.response?.data?.message || 'Failed to load dashboard'
+        console.error('Error loading dashboard:', err)
+        error.value = err.response?.data?.message || 'Failed to load dashboard'
       } finally {
-        this.loading = false
+        loading.value = false
       }
-    },
-    refreshData() {
-      this.loadDashboard()
-    },
-    async handleLogout() {
+    }
+
+    // Refresh data
+    const refreshData = () => {
+      loadDashboard()
+    }
+
+    // Logout functionality
+    const handleLogout = async () => {
       try {
         await authAPI.logout()
-        this.$router.push('/login')
+        router.push('/login')
       } catch (err) {
         console.error('Logout failed:', err)
-        this.$router.push('/login')
+        router.push('/login')
       }
-    },
-    getOccupancyColor(rate) {
-      if (rate < 50) return 'bg-green-500'
-      if (rate < 80) return 'bg-yellow-500'
-      return 'bg-red-500'
+    }
+
+    // Load data on component mount
+    onMounted(() => {
+      loadDashboard()
+    })
+
+    return {
+      loading,
+      error,
+      statistics,
+      user,
+      currentUser,
+      loadDashboard,
+      refreshData,
+      handleLogout
     }
   }
 }
 </script> 
+
+<style scoped>
+/* Admin Dashboard Bootstrap Styling */
+.admin-dashboard {
+  padding: 0;
+  background: #f8f9fa;
+}
+
+/* Custom stat card styling */
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.stat-icon {
+  opacity: 0.8;
+}
+
+/* Enhanced card styling */
+.card {
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Quick action cards */
+.quick-action-card {
+  transition: all 0.2s ease;
+  border: 1px solid #dee2e6 !important;
+}
+
+.quick-action-card:hover {
+  background-color: #f8f9fa;
+  border-color: #667eea !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.action-icon {
+  transition: all 0.2s ease;
+}
+
+.quick-action-card:hover .action-icon {
+  transform: scale(1.1);
+}
+
+/* Activity item hover effect */
+.activity-item:hover {
+  background-color: #f8f9fa;
+}
+
+/* Alert customization */
+.alert {
+  border: none;
+  border-radius: 12px;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border-left: 4px solid #28a745;
+}
+
+/* Badge enhancements */
+.badge {
+  font-weight: 500;
+  font-size: 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Header styling */
+.border-bottom {
+  border-color: #e9ecef !important;
+}
+
+/* Card header styling */
+.card-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .quick-action-card {
+    text-align: center;
+  }
+  
+  .quick-action-card .d-flex {
+    flex-direction: column;
+    align-items: center !important;
+    gap: 0.75rem;
+  }
+  
+  .activity-item .d-flex {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.5rem;
+  }
+}
+
+/* Border utilities */
+.border-bottom:last-child {
+  border-bottom: none !important;
+}
+
+/* Custom focus styles */
+.btn:focus {
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Loading spinner customization */
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+}
+
+/* System status styling */
+.alert-success .fas.fa-check-circle {
+  color: #28a745;
+}
+
+/* Stat card specific colors */
+.stat-card.bg-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+.stat-card.bg-success {
+  background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+}
+
+.stat-card.bg-warning {
+  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
+}
+
+.stat-card.bg-info {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+}
+
+/* Text shadow for better readability on colored backgrounds */
+.stat-card h3,
+.stat-card p {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Quick action card link styling */
+.quick-action-card h6 {
+  color: #495057;
+  margin-bottom: 0.25rem;
+}
+
+.quick-action-card:hover h6 {
+  color: #667eea;
+}
+
+/* Activity styling */
+.recent-activity .activity-item {
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+</style> 

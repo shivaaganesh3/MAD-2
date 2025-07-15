@@ -200,12 +200,12 @@
     </div>
 
     <!-- Lot Details Modal -->
-    <div v-if="showDetailsModal" class="modal fade show d-block" tabindex="-1">
+    <div v-if="showDetailsModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5);" @click.self="closeDetailsModal">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ selectedLot?.name }}</h5>
-            <button @click="closeDetailsModal" class="btn-close"></button>
+            <button @click="closeDetailsModal" class="btn-close" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <div v-if="lotDetails" class="lot-full-details">
@@ -266,15 +266,14 @@
         </div>
       </div>
     </div>
-    <div v-if="showDetailsModal" class="modal-backdrop fade show"></div>
 
     <!-- Reserve Modal -->
-    <div v-if="showReserveModal" class="modal fade show d-block" tabindex="-1">
+    <div v-if="showReserveModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5);" @click.self="closeReserveModal">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Reserve Parking Spot</h5>
-            <button @click="closeReserveModal" class="btn-close"></button>
+            <button @click="closeReserveModal" class="btn-close" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <form @submit.prevent="confirmReservation">
@@ -319,7 +318,6 @@
         </div>
       </div>
     </div>
-    <div v-if="showReserveModal" class="modal-backdrop fade show"></div>
   </div>
 </template>
 
@@ -474,10 +472,16 @@ export default {
         return
       }
       
+      // Close details modal first if it's open
+      if (showDetailsModal.value) {
+        showDetailsModal.value = false
+        lotDetails.value = null
+      }
+      
+      // Set selected lot and show reserve modal
       selectedLot.value = lot
       showReserveModal.value = true
       reservationForm.value = { vehicle_number: '', vehicle_model: '' }
-      closeDetailsModal()
     }
 
     const closeReserveModal = () => {
@@ -488,6 +492,25 @@ export default {
 
     const confirmReservation = async () => {
       try {
+        console.log('Starting reservation confirmation...')
+        console.log('Selected lot:', selectedLot.value)
+        console.log('Selected lot ID:', selectedLot.value?.id)
+        console.log('Show reserve modal:', showReserveModal.value)
+        console.log('Reservation form:', reservationForm.value)
+        
+        if (!selectedLot.value) {
+          console.error('ERROR: No parking lot selected!')
+          alert('No parking lot selected. Please try again.')
+          return
+        }
+        
+        if (!reservationForm.value.vehicle_number?.trim()) {
+          console.error('ERROR: No vehicle number entered!')
+          alert('Please enter a vehicle number.')
+          return
+        }
+        
+        console.log('Pre-validation passed, setting reserving lot...')
         reservingLot.value = selectedLot.value.id
         
         const reservationData = {
@@ -496,8 +519,11 @@ export default {
           vehicle_model: reservationForm.value.vehicle_model.trim() || undefined
         }
         
+        console.log('Sending reservation data:', reservationData)
+        
         const response = await userAPI.createReservation(reservationData)
         
+        console.log('Reservation response:', response.data)
         alert('Parking spot reserved successfully!')
         closeReserveModal()
         loadParkingLots(currentPage.value, searchQuery.value) // Refresh data
@@ -505,6 +531,7 @@ export default {
         
       } catch (err) {
         console.error('Error creating reservation:', err)
+        console.error('Error details:', err.response)
         alert(err.response?.data?.message || 'Failed to create reservation')
       } finally {
         reservingLot.value = null
@@ -673,6 +700,22 @@ export default {
 .spots-grid {
   max-height: 200px;
   overflow-y: auto;
+}
+
+.modal {
+  z-index: 1050;
+}
+
+.modal-dialog {
+  margin: 1.75rem auto;
+}
+
+.modal-content {
+  background-clip: padding-box;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 0.3rem;
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.5);
 }
 
 .modal.show {

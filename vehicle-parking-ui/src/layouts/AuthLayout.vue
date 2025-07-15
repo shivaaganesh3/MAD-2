@@ -1,32 +1,38 @@
 <template>
-  <div class="auth-layout">
-    <div class="auth-container">
-      <!-- Header -->
-      <div class="auth-header">
-        <div class="brand">
-          <h1>🅿️ Vehicle Parking System</h1>
-          <p class="tagline">Secure, Smart, Simple Parking Solutions</p>
+  <div class="auth-layout min-vh-100 d-flex align-items-center justify-content-center position-relative">
+    <div class="container-fluid">
+      <div class="row justify-content-center">
+        <div class="col-11 col-sm-10 col-md-8 col-lg-7 col-xl-6 col-xxl-5">
+          <div class="auth-container position-relative">
+            <!-- Header -->
+            <div class="text-center mb-4">
+              <div class="brand">
+                <h1 class="text-white fw-bold mb-2">🅿️ Vehicle Parking System</h1>
+                <p class="tagline text-white-50 fs-6 mb-0">Secure, Smart, Simple Parking Solutions</p>
+              </div>
+            </div>
+            
+            <!-- Main Auth Content -->
+            <div class="auth-content bg-white rounded-4 shadow-lg">
+              <router-view />
+            </div>
+            
+            <!-- Footer -->
+            <div class="text-center mt-4">
+              <p class="text-white-50 small mb-0">&copy; 2025 Vehicle Parking System. All rights reserved.</p>
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <!-- Main Auth Content -->
-      <div class="auth-content">
-        <router-view />
-      </div>
-      
-      <!-- Footer -->
-      <div class="auth-footer">
-        <p>&copy; 2025 Vehicle Parking System. All rights reserved.</p>
       </div>
     </div>
     
     <!-- Background Animation -->
-    <div class="background-animation">
-      <div class="floating-shape shape-1"></div>
-      <div class="floating-shape shape-2"></div>
-      <div class="floating-shape shape-3"></div>
-      <div class="floating-shape shape-4"></div>
-      <div class="floating-shape shape-5"></div>
+    <div class="background-animation position-absolute top-0 start-0 w-100 h-100 overflow-hidden">
+      <div class="floating-shape shape-1 position-absolute rounded-circle"></div>
+      <div class="floating-shape shape-2 position-absolute rounded-circle"></div>
+      <div class="floating-shape shape-3 position-absolute rounded-circle"></div>
+      <div class="floating-shape shape-4 position-absolute rounded-circle"></div>
+      <div class="floating-shape shape-5 position-absolute rounded-circle"></div>
     </div>
   </div>
 </template>
@@ -39,79 +45,38 @@ export default {
 
 <style scoped>
 .auth-layout {
-  min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
   overflow: hidden;
 }
 
 .auth-container {
-  width: 100%;
-  max-width: 450px;
-  margin: 0 auto;
-  padding: 2rem;
-  position: relative;
   z-index: 2;
 }
 
-.auth-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
 .brand h1 {
-  color: white;
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin: 0 0 0.5rem 0;
+  font-size: 2.8rem;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
 .tagline {
-  color: rgba(255,255,255,0.9);
-  font-size: 1.1rem;
-  margin: 0;
   font-weight: 300;
+  font-size: 1.1rem;
 }
 
 .auth-content {
-  background: white;
-  border-radius: 15px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-  overflow: hidden;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255,255,255,0.2);
-}
-
-.auth-footer {
-  text-align: center;
-  margin-top: 2rem;
-}
-
-.auth-footer p {
-  color: rgba(255,255,255,0.8);
-  font-size: 0.9rem;
-  margin: 0;
+  overflow: hidden;
+  padding: 0;
 }
 
 /* Background Animation */
 .background-animation {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
   z-index: 1;
 }
 
 .floating-shape {
-  position: absolute;
   background: rgba(255,255,255,0.1);
-  border-radius: 50%;
   animation: float 6s ease-in-out infinite;
 }
 
@@ -170,17 +135,12 @@ export default {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .auth-container {
-    padding: 1rem;
-    max-width: 90%;
-  }
-  
   .brand h1 {
-    font-size: 2rem;
+    font-size: 2.2rem !important;
   }
   
   .tagline {
-    font-size: 1rem;
+    font-size: 1rem !important;
   }
   
   .floating-shape {
@@ -189,16 +149,12 @@ export default {
 }
 
 @media (max-width: 480px) {
-  .auth-container {
-    padding: 0.5rem;
-  }
-  
   .brand h1 {
-    font-size: 1.8rem;
+    font-size: 1.9rem !important;
   }
   
-  .auth-header {
-    margin-bottom: 1.5rem;
+  .tagline {
+    font-size: 0.9rem !important;
   }
 }
 
@@ -215,15 +171,20 @@ export default {
   right: 0;
   bottom: 0;
   background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  border-radius: 15px;
+  border-radius: 1.5rem;
   z-index: -1;
 }
 
 /* Glassmorphism effect */
 @supports (backdrop-filter: blur(10px)) {
   .auth-content {
-    background: rgba(255,255,255,0.95);
+    background: rgba(255,255,255,0.95) !important;
     backdrop-filter: blur(10px);
   }
+}
+
+/* Enhanced box shadow using Bootstrap custom properties */
+.shadow-lg {
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2) !important;
 }
 </style> 

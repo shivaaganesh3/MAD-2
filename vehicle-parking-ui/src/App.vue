@@ -1,32 +1,47 @@
 <template>
   <div id="app">
     <!-- Global Loading Overlay -->
-    <div v-if="globalLoading" class="global-loading">
-      <div class="loading-spinner"></div>
-      <p>Loading...</p>
+    <div v-if="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.9); z-index: 9999; backdrop-filter: blur(5px);">
+      <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-muted fw-medium">Loading...</p>
     </div>
     
     <!-- Global Error Handler -->
-    <div v-if="globalError" class="global-error">
-      <div class="error-content">
-        <h3>⚠️ Application Error</h3>
-        <p>{{ globalError }}</p>
-        <button @click="clearGlobalError" class="error-button">
-          Dismiss
-        </button>
+    <div v-if="globalError" class="position-fixed top-50 start-50 translate-middle" style="z-index: 9998;">
+      <div class="card border-danger shadow-lg" style="max-width: 400px; width: 90vw;">
+        <div class="card-header bg-danger text-white d-flex align-items-center">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <h5 class="mb-0">Application Error</h5>
+        </div>
+        <div class="card-body">
+          <p class="mb-3">{{ globalError }}</p>
+          <button @click="clearGlobalError" class="btn btn-danger w-100">
+            <i class="fas fa-times me-2"></i>Dismiss
+          </button>
+        </div>
       </div>
     </div>
     
-    <!-- Global Notification System -->
-    <div v-if="notification" :class="['notification', `notification-${notification.type}`]">
-      <div class="notification-content">
-        <span class="notification-icon">
-          {{ getNotificationIcon(notification.type) }}
-        </span>
-        <span class="notification-message">{{ notification.message }}</span>
-        <button @click="clearNotification" class="notification-close">
-          ×
-        </button>
+    <!-- Global Notification System (Toast) -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9997;">
+      <div 
+        v-if="notification" 
+        :class="['toast', 'show', `border-${getNotificationColor(notification.type)}`]"
+        role="alert" 
+        aria-live="assertive" 
+        aria-atomic="true"
+      >
+        <div :class="['toast-header', `bg-${getNotificationColor(notification.type)}-subtle`]">
+          <i :class="getNotificationIcon(notification.type)" class="me-2"></i>
+          <strong class="me-auto">{{ getNotificationTitle(notification.type) }}</strong>
+          <small class="text-muted">now</small>
+          <button @click="clearNotification" type="button" class="btn-close" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+          {{ notification.message }}
+        </div>
       </div>
     </div>
     
@@ -45,6 +60,7 @@ export default {
     const globalLoading = ref(false)
     const globalError = ref(null)
     const notification = ref(null)
+    const notificationTimeout = ref(null)
     
     // Global event listeners
     const handleGlobalError = (error) => {
@@ -57,9 +73,15 @@ export default {
     }
     
     const showNotification = (message, type = 'info') => {
+      // Clear existing notification timeout
+      if (notificationTimeout.value) {
+        clearTimeout(notificationTimeout.value)
+      }
+      
       notification.value = { message, type }
+      
       // Auto-hide notification after 5 seconds
-      setTimeout(() => {
+      notificationTimeout.value = setTimeout(() => {
         clearNotification()
       }, 5000)
     }
@@ -69,17 +91,41 @@ export default {
     }
     
     const clearNotification = () => {
+      if (notificationTimeout.value) {
+        clearTimeout(notificationTimeout.value)
+        notificationTimeout.value = null
+      }
       notification.value = null
     }
     
     const getNotificationIcon = (type) => {
       const icons = {
-        success: '✅',
-        error: '❌',
-        warning: '⚠️',
-        info: 'ℹ️'
+        success: 'fas fa-check-circle text-success',
+        error: 'fas fa-exclamation-circle text-danger',
+        warning: 'fas fa-exclamation-triangle text-warning',
+        info: 'fas fa-info-circle text-info'
       }
-      return icons[type] || 'ℹ️'
+      return icons[type] || 'fas fa-info-circle text-info'
+    }
+    
+    const getNotificationColor = (type) => {
+      const colors = {
+        success: 'success',
+        error: 'danger',
+        warning: 'warning',
+        info: 'info'
+      }
+      return colors[type] || 'info'
+    }
+    
+    const getNotificationTitle = (type) => {
+      const titles = {
+        success: 'Success',
+        error: 'Error',
+        warning: 'Warning',
+        info: 'Information'
+      }
+      return titles[type] || 'Notification'
     }
     
     // Token expiration handler
@@ -138,6 +184,11 @@ export default {
       if (window.tokenCheckInterval) {
         clearInterval(window.tokenCheckInterval)
       }
+      
+      // Clear notification timeout
+      if (notificationTimeout.value) {
+        clearTimeout(notificationTimeout.value)
+      }
     })
     
     // Provide global methods to child components
@@ -153,7 +204,9 @@ export default {
       notification,
       clearGlobalError,
       clearNotification,
-      getNotificationIcon
+      getNotificationIcon,
+      getNotificationColor,
+      getNotificationTitle
     }
   }
 }
@@ -171,7 +224,7 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f5f5f5;
+  background-color: #f8f9fa;
   color: #333;
   line-height: 1.6;
 }
@@ -181,298 +234,154 @@ body {
   position: relative;
 }
 
-/* Global Loading Overlay */
-.global-loading {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  backdrop-filter: blur(5px);
+/* Enhanced Bootstrap Toast Styling */
+.toast {
+  min-width: 350px;
+  border-width: 2px;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
 
-.loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+.toast-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.toast-body {
+  padding: 0.75rem;
+  font-weight: 500;
 }
 
-/* Global Error Handler */
-.global-error {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: white;
-  padding: 2rem;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  z-index: 9998;
-  max-width: 400px;
-  width: 90%;
-  border-left: 4px solid #e74c3c;
-}
-
-.error-content h3 {
-  color: #e74c3c;
-  margin: 0 0 1rem 0;
-}
-
-.error-content p {
-  margin: 0 0 1.5rem 0;
-  color: #666;
-}
-
-.error-button {
-  background: #e74c3c;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.3s ease;
-}
-
-.error-button:hover {
-  background: #c0392b;
-}
-
-/* Global Notification System */
-.notification {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  z-index: 9997;
-  min-width: 300px;
-  max-width: 500px;
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.notification-content {
-  display: flex;
-  align-items: center;
-  padding: 1rem;
-  gap: 0.75rem;
-}
-
-.notification-icon {
-  font-size: 1.2rem;
-  flex-shrink: 0;
-}
-
-.notification-message {
-  flex: 1;
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-.notification-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #999;
-  padding: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background 0.2s ease;
-}
-
-.notification-close:hover {
-  background: #f0f0f0;
-}
-
-/* Notification Types */
-.notification-success {
-  border-left: 4px solid #27ae60;
-}
-
-.notification-error {
-  border-left: 4px solid #e74c3c;
-}
-
-.notification-warning {
-  border-left: 4px solid #f39c12;
-}
-
-.notification-info {
-  border-left: 4px solid #3498db;
-}
-
-/* Global Utility Classes */
+/* Enhanced button styling */
 .btn {
-  display: inline-block;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  text-decoration: none;
-  text-align: center;
-  cursor: pointer;
-  font-size: 0.9rem;
+  border-radius: 0.5rem;
   font-weight: 500;
   transition: all 0.3s ease;
-  background: #667eea;
-  color: white;
 }
 
 .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: translateY(-1px);
 }
 
-.btn-secondary {
-  background: #6c757d;
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
 }
 
-.btn-secondary:hover {
-  background: #5a6268;
-  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+.btn-primary:hover,
+.btn-primary:focus {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  border: none;
+  box-shadow: 0 0.5rem 1rem rgba(102, 126, 234, 0.4);
 }
 
-.btn-danger {
-  background: #e74c3c;
+/* Enhanced form controls */
+.form-control,
+.form-select {
+  border-radius: 0.5rem;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s ease;
 }
 
-.btn-danger:hover {
-  background: #c0392b;
-  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
-}
-
-.btn-success {
-  background: #27ae60;
-}
-
-.btn-success:hover {
-  background: #229954;
-  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
-}
-
-/* Form Elements */
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e1e5e9;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  transition: border-color 0.3s ease;
-}
-
-.form-input:focus {
-  outline: none;
+.form-control:focus,
+.form-select:focus {
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
 }
 
-.form-input.error {
-  border-color: #e74c3c;
-}
-
-.form-error {
-  color: #e74c3c;
-  font-size: 0.8rem;
-  margin-top: 0.25rem;
-}
-
-/* Card Components */
+/* Enhanced cards */
 .card {
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  overflow: hidden;
+  border-radius: 1rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: 1px solid rgba(0, 0, 0, 0.125);
+  transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
 
 .card-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid #e1e5e9;
-  background: #f8f9fa;
+  border-radius: 1rem 1rem 0 0 !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+  font-weight: 600;
 }
 
-.card-body {
-  padding: 1.5rem;
+/* Enhanced badges */
+.badge {
+  font-weight: 500;
+  padding: 0.5em 0.75em;
+  border-radius: 0.5rem;
 }
 
-.card-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #e1e5e9;
-  background: #f8f9fa;
+/* Enhanced alerts */
+.alert {
+  border-radius: 0.75rem;
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
-/* Responsive Utilities */
-@media (max-width: 768px) {
-  .notification {
-    top: 10px;
-    right: 10px;
-    left: 10px;
-    min-width: auto;
+/* Responsive utilities */
+@media (max-width: 576px) {
+  .toast {
+    min-width: 280px;
+    margin: 0 0.5rem;
   }
   
-  .global-error {
-    margin: 1rem;
-    width: calc(100% - 2rem);
+  .position-fixed.top-50.start-50.translate-middle {
+    width: 95vw !important;
+    max-width: none !important;
   }
 }
 
-/* Accessibility Improvements */
+/* Enhanced loading states */
+.spinner-border {
+  animation-duration: 0.75s;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus indicators for accessibility */
+.btn:focus,
+.form-control:focus,
+.form-select:focus,
+.nav-link:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Enhanced text selection */
+::selection {
+  background-color: rgba(102, 126, 234, 0.3);
+  color: inherit;
+}
+
+/* Reduced motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-/* Focus styles for keyboard navigation */
-button:focus,
-input:focus,
-select:focus,
-textarea:focus,
-a:focus {
-  outline: 2px solid #667eea;
-  outline-offset: 2px;
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1a1a1a;
+    color: #e9ecef;
+  }
+}
+
+/* Print styles */
+@media print {
+  .toast-container,
+  .position-fixed,
+  .btn,
+  .navbar {
+    display: none !important;
+  }
 }
 </style>

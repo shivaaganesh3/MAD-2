@@ -1,147 +1,193 @@
 <template>
   <div class="user-dashboard">
     <!-- Header -->
-    <div class="dashboard-header">
-      <h1 class="dashboard-title">User Dashboard</h1>
-      <div class="user-info">
-        <span class="welcome-text">Welcome, {{ userInfo?.full_name || 'User' }}!</span>
-        <button @click="logout" class="btn btn-outline-danger btn-sm">
-          <i class="fas fa-sign-out-alt"></i> Logout
-        </button>
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+      <div>
+        <h1 class="h3 mb-1 fw-bold text-dark">
+          <i class="fas fa-tachometer-alt me-2 text-primary"></i>User Dashboard
+        </h1>
+        <p class="text-muted mb-0">Welcome back, {{ userInfo?.full_name || 'User' }}!</p>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-primary-subtle text-primary px-3 py-2">
+          <i class="fas fa-user me-1"></i>{{ currentUser?.username }}
+        </span>
       </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="loading-container">
-      <div class="spinner-border text-primary" role="status">
+    <div v-if="loading" class="text-center py-5">
+      <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
         <span class="visually-hidden">Loading...</span>
       </div>
-      <p>Loading dashboard data...</p>
+      <p class="text-muted">Loading dashboard data...</p>
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="alert alert-danger">
-      <i class="fas fa-exclamation-triangle"></i>
-      {{ error }}
-      <button @click="loadDashboard" class="btn btn-sm btn-outline-danger ms-2">
-        <i class="fas fa-refresh"></i> Retry
-      </button>
+    <div v-else-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
+      <i class="fas fa-exclamation-triangle me-3 fs-4"></i>
+      <div class="flex-fill">
+        <h5 class="alert-heading mb-1">Unable to load dashboard</h5>
+        <p class="mb-2">{{ error }}</p>
+        <button @click="loadDashboard" class="btn btn-outline-danger btn-sm">
+          <i class="fas fa-redo me-1"></i>Retry
+        </button>
+      </div>
     </div>
 
     <!-- Dashboard Content -->
     <div v-else class="dashboard-content">
-      <!-- User Statistics -->
-      <div class="row mb-4">
-        <div class="col-md-3">
-          <div class="stats-card bg-primary">
-            <div class="stats-content">
-              <h3>{{ userStats?.total_reservations || 0 }}</h3>
-              <p>Total Reservations</p>
+      <!-- User Statistics Cards -->
+      <div class="row g-4 mb-4">
+        <div class="col-md-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100 stat-card bg-primary text-white">
+            <div class="card-body d-flex align-items-center">
+              <div class="flex-fill">
+                <h3 class="mb-1 fw-bold">{{ userStats?.total_reservations || 0 }}</h3>
+                <p class="mb-0 opacity-75">Total Reservations</p>
+              </div>
+              <div class="stat-icon">
+                <i class="fas fa-car fa-2x opacity-75"></i>
+              </div>
             </div>
-            <i class="fas fa-car stats-icon"></i>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="stats-card bg-success">
-            <div class="stats-content">
-              <h3>{{ userStats?.completed_reservations || 0 }}</h3>
-              <p>Completed</p>
+        <div class="col-md-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100 stat-card bg-success text-white">
+            <div class="card-body d-flex align-items-center">
+              <div class="flex-fill">
+                <h3 class="mb-1 fw-bold">{{ userStats?.completed_reservations || 0 }}</h3>
+                <p class="mb-0 opacity-75">Completed</p>
+              </div>
+              <div class="stat-icon">
+                <i class="fas fa-check-circle fa-2x opacity-75"></i>
+              </div>
             </div>
-            <i class="fas fa-check-circle stats-icon"></i>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="stats-card bg-warning">
-            <div class="stats-content">
-              <h3>{{ userStats?.active_reservations || 0 }}</h3>
-              <p>Active</p>
+        <div class="col-md-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100 stat-card bg-warning text-white">
+            <div class="card-body d-flex align-items-center">
+              <div class="flex-fill">
+                <h3 class="mb-1 fw-bold">{{ userStats?.active_reservations || 0 }}</h3>
+                <p class="mb-0 opacity-75">Active</p>
+              </div>
+              <div class="stat-icon">
+                <i class="fas fa-clock fa-2x opacity-75"></i>
+              </div>
             </div>
-            <i class="fas fa-clock stats-icon"></i>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="stats-card bg-danger">
-            <div class="stats-content">
-              <h3>{{ userStats?.cancelled_reservations || 0 }}</h3>
-              <p>Cancelled</p>
+        <div class="col-md-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100 stat-card bg-danger text-white">
+            <div class="card-body d-flex align-items-center">
+              <div class="flex-fill">
+                <h3 class="mb-1 fw-bold">{{ userStats?.cancelled_reservations || 0 }}</h3>
+                <p class="mb-0 opacity-75">Cancelled</p>
+              </div>
+              <div class="stat-icon">
+                <i class="fas fa-times-circle fa-2x opacity-75"></i>
+              </div>
             </div>
-            <i class="fas fa-times-circle stats-icon"></i>
           </div>
         </div>
       </div>
 
       <!-- Active Reservation Alert -->
-      <div v-if="activeReservation" class="alert alert-info active-reservation-alert mb-4">
-        <div class="row align-items-center">
-          <div class="col-md-8">
-            <h5 class="alert-heading">
-              <i class="fas fa-parking"></i> Active Parking Session
-            </h5>
-            <p class="mb-1">
-              <strong>{{ activeReservation.lot_name }}</strong> - Spot {{ activeReservation.spot_number }}
-            </p>
-            <p class="mb-1">
-              <small>Vehicle: {{ activeReservation.vehicle_number }} | 
-              Duration: {{ formatDuration(activeReservation.duration_minutes) }} | 
-              Current Cost: ₹{{ activeReservation.current_cost_estimate }}</small>
-            </p>
-            <p class="mb-0">
-              <small>Started: {{ formatDateTime(activeReservation.parking_timestamp) }}</small>
-            </p>
+      <div v-if="activeReservation" class="alert alert-info border-0 shadow-sm mb-4" role="alert">
+        <div class="d-flex align-items-start">
+          <div class="me-3">
+            <i class="fas fa-parking fa-2x text-info"></i>
           </div>
-          <div class="col-md-4 text-end">
-            <button 
-              @click="releaseSpot(activeReservation.id)" 
-              class="btn btn-success"
-              :disabled="releasingSpot"
-            >
-              <i class="fas fa-sign-out-alt"></i>
-              {{ releasingSpot ? 'Releasing...' : 'Release Spot' }}
-            </button>
+          <div class="flex-fill">
+            <h5 class="alert-heading mb-2">
+              <i class="fas fa-circle text-success me-2" style="font-size: 0.5rem;"></i>
+              Active Parking Session
+            </h5>
+            <div class="row align-items-center">
+              <div class="col-lg-8">
+                <p class="mb-2">
+                  <strong class="text-dark">{{ activeReservation.lot_name }}</strong>
+                  <span class="badge bg-info-subtle text-info ms-2">Spot {{ activeReservation.spot_number }}</span>
+                </p>
+                <div class="small text-muted mb-2">
+                  <div class="d-flex flex-wrap gap-3">
+                    <span><i class="fas fa-car me-1"></i>{{ activeReservation.vehicle_number }}</span>
+                    <span><i class="fas fa-clock me-1"></i>{{ formatDuration(activeReservation.duration_minutes) }}</span>
+                    <span><i class="fas fa-rupee-sign me-1"></i>{{ activeReservation.current_cost_estimate }}</span>
+                  </div>
+                </div>
+                <p class="mb-0 small text-muted">
+                  <i class="fas fa-calendar-alt me-1"></i>Started: {{ formatDateTime(activeReservation.parking_timestamp) }}
+                </p>
+              </div>
+              <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                <button 
+                  @click="releaseSpot(activeReservation.id)" 
+                  class="btn btn-success btn-lg px-4"
+                  :disabled="releasingSpot"
+                >
+                  <span v-if="releasingSpot" class="spinner-border spinner-border-sm me-2"></span>
+                  <i v-else class="fas fa-sign-out-alt me-2"></i>
+                  {{ releasingSpot ? 'Releasing...' : 'Release Spot' }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="row">
+      <div class="row g-4">
         <!-- Available Parking Lots -->
         <div class="col-lg-8">
-          <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h5 class="mb-0">
-                <i class="fas fa-map-marker-alt"></i> Available Parking Lots
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center py-3">
+              <h5 class="mb-0 fw-bold">
+                <i class="fas fa-map-marker-alt me-2 text-primary"></i>Available Parking Lots
               </h5>
-              <router-link to="/user/parking-lots" class="btn btn-sm btn-primary">
-                View All
+              <router-link to="/user/parking-lots" class="btn btn-primary btn-sm">
+                <i class="fas fa-external-link-alt me-1"></i>View All
               </router-link>
             </div>
             <div class="card-body">
-              <div v-if="availableLots.length === 0" class="text-center py-4">
-                <i class="fas fa-info-circle text-muted"></i>
-                <p class="text-muted">No parking lots with available spots</p>
+              <div v-if="availableLots.length === 0" class="text-center py-5">
+                <i class="fas fa-info-circle text-muted fa-3x mb-3"></i>
+                <h6 class="text-muted">No Available Parking</h6>
+                <p class="text-muted mb-0">All parking lots are currently full. Please check back later.</p>
               </div>
               <div v-else class="parking-lots-list">
                 <div 
-                  v-for="lot in availableLots.slice(0, 3)" 
+                  v-for="(lot, index) in availableLots.slice(0, 3)" 
                   :key="lot.id" 
-                  class="parking-lot-item"
+                  class="parking-lot-item p-3 rounded"
+                  :class="{'border-bottom': index < Math.min(availableLots.length, 3) - 1}"
                 >
-                  <div class="lot-info">
-                    <h6>{{ lot.name }}</h6>
-                    <p class="text-muted mb-1">{{ lot.address }}</p>
-                    <div class="lot-details">
-                      <span class="badge bg-success">{{ lot.available_spots }} available</span>
-                      <span class="price">₹{{ lot.price_per_hour }}/hour</span>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div class="flex-fill">
+                      <h6 class="mb-1 fw-bold">{{ lot.name }}</h6>
+                      <p class="text-muted mb-2 small">
+                        <i class="fas fa-map-marker-alt me-1"></i>{{ lot.address }}
+                      </p>
+                      <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-success-subtle text-success px-2 py-1">
+                          <i class="fas fa-parking me-1"></i>{{ lot.available_spots }} available
+                        </span>
+                        <span class="fw-bold text-primary">
+                          <i class="fas fa-rupee-sign me-1"></i>{{ lot.price_per_hour }}/hour
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div class="lot-actions">
-                    <button 
-                      @click="quickReserve(lot)" 
-                      class="btn btn-sm btn-primary"
-                      :disabled="activeReservation || reservingLot === lot.id"
-                    >
-                      <i class="fas fa-plus"></i>
-                      {{ reservingLot === lot.id ? 'Reserving...' : 'Quick Reserve' }}
-                    </button>
+                    <div class="ms-3">
+                      <button 
+                        @click="quickReserve(lot)" 
+                        class="btn btn-primary"
+                        :disabled="activeReservation || reservingLot === lot.id"
+                      >
+                        <span v-if="reservingLot === lot.id" class="spinner-border spinner-border-sm me-2"></span>
+                        <i v-else class="fas fa-plus me-2"></i>
+                        {{ reservingLot === lot.id ? 'Reserving...' : 'Quick Reserve' }}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -151,37 +197,45 @@
 
         <!-- Recent Reservations -->
         <div class="col-lg-4">
-          <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h5 class="mb-0">
-                <i class="fas fa-history"></i> Recent Activity
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center py-3">
+              <h5 class="mb-0 fw-bold">
+                <i class="fas fa-history me-2 text-primary"></i>Recent Activity
               </h5>
-              <router-link to="/user/history" class="btn btn-sm btn-outline-primary">
-                View All
+              <router-link to="/user/history" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-external-link-alt me-1"></i>View All
               </router-link>
             </div>
             <div class="card-body">
               <div v-if="recentReservations.length === 0" class="text-center py-4">
-                <i class="fas fa-info-circle text-muted"></i>
-                <p class="text-muted">No recent reservations</p>
+                <i class="fas fa-history text-muted fa-2x mb-3"></i>
+                <h6 class="text-muted">No Recent Activity</h6>
+                <p class="text-muted mb-0 small">Your recent reservations will appear here.</p>
               </div>
               <div v-else class="recent-reservations">
                 <div 
-                  v-for="reservation in recentReservations.slice(0, 5)" 
+                  v-for="(reservation, index) in recentReservations.slice(0, 5)" 
                   :key="reservation.id"
-                  class="reservation-item"
+                  class="reservation-item p-2 rounded"
+                  :class="{'border-bottom': index < Math.min(recentReservations.length, 5) - 1}"
                 >
-                  <div class="reservation-info">
-                    <h6>{{ reservation.lot_name }}</h6>
-                    <p class="mb-1">Spot {{ reservation.spot_number }}</p>
-                    <small class="text-muted">{{ formatDateTime(reservation.parking_timestamp) }}</small>
-                  </div>
-                  <div class="reservation-status">
-                    <span :class="getStatusBadgeClass(reservation.status)">
-                      {{ getStatusText(reservation.status) }}
-                    </span>
-                    <div v-if="reservation.parking_cost" class="cost">
-                      ₹{{ reservation.parking_cost }}
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-fill">
+                      <h6 class="mb-1 small fw-medium">{{ reservation.lot_name }}</h6>
+                      <p class="mb-1 small text-muted">
+                        <i class="fas fa-parking me-1"></i>Spot {{ reservation.spot_number }}
+                      </p>
+                      <small class="text-muted">
+                        <i class="fas fa-calendar me-1"></i>{{ formatDateTime(reservation.parking_timestamp) }}
+                      </small>
+                    </div>
+                    <div class="text-end">
+                      <span :class="getStatusBadgeClass(reservation.status)" class="badge small">
+                        {{ getStatusText(reservation.status) }}
+                      </span>
+                      <div v-if="reservation.parking_cost" class="fw-bold text-success small mt-1">
+                        <i class="fas fa-rupee-sign"></i>{{ reservation.parking_cost }}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -193,63 +247,76 @@
     </div>
 
     <!-- Quick Reserve Modal -->
-    <div v-if="showReserveModal" class="modal fade show d-block" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Reserve Parking Spot</h5>
+    <div v-if="showReserveModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5);" @click.self="closeReserveModal">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold">
+              <i class="fas fa-parking me-2 text-primary"></i>Reserve Parking Spot
+            </h5>
             <button @click="closeReserveModal" class="btn-close"></button>
           </div>
           <div class="modal-body">
+            <div class="alert alert-info border-0 bg-info-subtle">
+              <div class="d-flex align-items-center">
+                <i class="fas fa-info-circle me-2"></i>
+                <div>
+                  <strong>{{ selectedLot?.name }}</strong>
+                  <div class="small text-muted">{{ selectedLot?.address }}</div>
+                </div>
+              </div>
+            </div>
+            
             <form @submit.prevent="confirmReservation">
               <div class="mb-3">
-                <label class="form-label">Parking Lot</label>
-                <p class="form-text">{{ selectedLot?.name }} - {{ selectedLot?.address }}</p>
-              </div>
-              <div class="mb-3">
-                <label for="vehicleNumber" class="form-label">Vehicle Number *</label>
+                <label for="vehicleNumber" class="form-label fw-medium">
+                  <i class="fas fa-car me-1"></i>Vehicle Number *
+                </label>
                 <input 
                   type="text" 
-                  class="form-control" 
+                  class="form-control form-control-lg" 
                   id="vehicleNumber"
                   v-model="reservationForm.vehicle_number"
-                  placeholder="Enter vehicle number"
+                  placeholder="Enter vehicle number (e.g., KA01AB1234)"
                   required
                 >
               </div>
               <div class="mb-3">
-                <label for="vehicleModel" class="form-label">Vehicle Model (Optional)</label>
+                <label for="vehicleModel" class="form-label fw-medium">
+                  <i class="fas fa-car-side me-1"></i>Vehicle Model (Optional)
+                </label>
                 <input 
                   type="text" 
                   class="form-control" 
                   id="vehicleModel"
                   v-model="reservationForm.vehicle_model"
-                  placeholder="Enter vehicle model"
+                  placeholder="Enter vehicle model (e.g., Honda City)"
                 >
               </div>
             </form>
           </div>
-          <div class="modal-footer">
-            <button @click="closeReserveModal" class="btn btn-secondary">Cancel</button>
+          <div class="modal-footer border-0 pt-0">
+            <button @click="closeReserveModal" class="btn btn-light">Cancel</button>
             <button 
               @click="confirmReservation" 
-              class="btn btn-primary"
+              class="btn btn-primary px-4"
               :disabled="!reservationForm.vehicle_number || reservingLot"
             >
+              <span v-if="reservingLot" class="spinner-border spinner-border-sm me-2"></span>
+              <i v-else class="fas fa-check me-2"></i>
               {{ reservingLot ? 'Reserving...' : 'Confirm Reservation' }}
             </button>
           </div>
         </div>
       </div>
     </div>
-    <div v-if="showReserveModal" class="modal-backdrop fade show"></div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { dashboardAPI, userAPI, authAPI } from '../../services/api'
+import { dashboardAPI, userAPI, authAPI, authHelpers } from '../../services/api'
 
 export default {
   name: 'UserDashboard',
@@ -274,6 +341,9 @@ export default {
     })
     const reservingLot = ref(null)
     const releasingSpot = ref(false)
+
+    // Computed properties
+    const currentUser = computed(() => authHelpers.getCurrentUser())
 
     // Load dashboard data
     const loadDashboard = async () => {
@@ -318,6 +388,20 @@ export default {
 
     const confirmReservation = async () => {
       try {
+        console.log('Dashboard - Starting reservation confirmation...')
+        console.log('Dashboard - Selected lot:', selectedLot.value)
+        console.log('Dashboard - Reservation form:', reservationForm.value)
+        
+        if (!selectedLot.value) {
+          alert('No parking lot selected. Please try again.')
+          return
+        }
+        
+        if (!reservationForm.value.vehicle_number?.trim()) {
+          alert('Please enter a vehicle number.')
+          return
+        }
+        
         reservingLot.value = selectedLot.value.id
         
         const reservationData = {
@@ -326,14 +410,18 @@ export default {
           vehicle_model: reservationForm.value.vehicle_model.trim() || undefined
         }
         
+        console.log('Dashboard - Sending reservation data:', reservationData)
+        
         const response = await userAPI.createReservation(reservationData)
         
+        console.log('Dashboard - Reservation response:', response.data)
         alert('Parking spot reserved successfully!')
         closeReserveModal()
         loadDashboard() // Refresh dashboard data
         
       } catch (err) {
-        console.error('Error creating reservation:', err)
+        console.error('Dashboard - Error creating reservation:', err)
+        console.error('Dashboard - Error details:', err.response)
         alert(err.response?.data?.message || 'Failed to create reservation')
       } finally {
         reservingLot.value = null
@@ -394,11 +482,11 @@ export default {
 
     const getStatusBadgeClass = (status) => {
       const classes = {
-        'active': 'badge bg-warning',
-        'completed': 'badge bg-success',
-        'cancelled': 'badge bg-danger'
+        'active': 'bg-warning-subtle text-warning',
+        'completed': 'bg-success-subtle text-success',
+        'cancelled': 'bg-danger-subtle text-danger'
       }
-      return classes[status] || 'badge bg-secondary'
+      return classes[status] || 'bg-secondary-subtle text-secondary'
     }
 
     const getStatusText = (status) => {
@@ -428,6 +516,7 @@ export default {
       reservationForm,
       reservingLot,
       releasingSpot,
+      currentUser,
       loadDashboard,
       quickReserve,
       closeReserveModal,
@@ -444,146 +533,73 @@ export default {
 </script>
 
 <style scoped>
-.user-dashboard {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
+/* Custom stat card styling */
+.stat-card {
+  transition: transform 0.2s ease;
 }
 
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid #eee;
+.stat-card:hover {
+  transform: translateY(-2px);
 }
 
-.dashboard-title {
-  margin: 0;
-  color: #333;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.welcome-text {
-  font-weight: 500;
-  color: #666;
-}
-
-.loading-container {
-  text-align: center;
-  padding: 50px;
-}
-
-.stats-card {
-  background: linear-gradient(135deg, var(--bs-primary), var(--bs-primary-dark));
-  color: white;
-  padding: 20px;
-  border-radius: 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.stats-card.bg-success {
-  background: linear-gradient(135deg, #28a745, #1e7e34);
-}
-
-.stats-card.bg-warning {
-  background: linear-gradient(135deg, #ffc107, #d39e00);
-}
-
-.stats-card.bg-danger {
-  background: linear-gradient(135deg, #dc3545, #bd2130);
-}
-
-.stats-content h3 {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: bold;
-}
-
-.stats-content p {
-  margin: 0;
-  opacity: 0.9;
-}
-
-.stats-icon {
-  font-size: 2.5rem;
+.stat-icon {
   opacity: 0.8;
 }
 
-.active-reservation-alert {
-  border-left: 4px solid #007bff;
+/* Enhanced card styling */
+.card {
+  transition: box-shadow 0.2s ease;
 }
 
-.parking-lot-item, .reservation-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 0;
-  border-bottom: 1px solid #eee;
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
 }
 
-.parking-lot-item:last-child, .reservation-item:last-child {
-  border-bottom: none;
+/* Parking lot item hover effect */
+.parking-lot-item:hover {
+  background-color: #f8f9fa;
 }
 
-.lot-info h6, .reservation-info h6 {
-  margin: 0 0 5px 0;
-  font-weight: 600;
+.reservation-item:hover {
+  background-color: #f8f9fa;
 }
 
-.lot-details {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+/* Modal backdrop */
+.modal {
+  backdrop-filter: blur(4px);
 }
 
-.price {
-  font-weight: 600;
-  color: #007bff;
+/* Custom focus styles */
+.form-control:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
 }
 
-.cost {
-  font-weight: 600;
-  color: #28a745;
-  font-size: 0.9rem;
-}
-
-.modal.show {
-  animation: fadeIn 0.15s ease-in;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
+/* Responsive adjustments */
 @media (max-width: 768px) {
-  .dashboard-header {
+  .parking-lot-item .d-flex {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
+    align-items: flex-start !important;
+    gap: 0.75rem;
   }
   
-  .parking-lot-item, .reservation-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  
-  .lot-actions, .reservation-status {
+  .parking-lot-item .ms-3 {
+    margin-left: 0 !important;
     width: 100%;
-    display: flex;
-    justify-content: flex-end;
   }
+  
+  .parking-lot-item .btn {
+    width: 100%;
+  }
+}
+
+/* Badge enhancements */
+.badge {
+  font-weight: 500;
+}
+
+/* Border utilities */
+.border-bottom:last-child {
+  border-bottom: none !important;
 }
 </style> 

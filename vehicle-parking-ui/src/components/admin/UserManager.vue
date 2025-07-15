@@ -1,407 +1,504 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Navigation Header -->
-    <nav class="bg-white shadow-sm border-b">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex items-center">
-            <router-link to="/admin/dashboard" class="flex items-center">
-              <div class="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-                </svg>
-              </div>
-              <h1 class="ml-3 text-xl font-semibold text-gray-900">User Manager</h1>
-            </router-link>
-          </div>
-          
-          <div class="flex items-center space-x-4">
-            <router-link to="/admin/dashboard" class="text-gray-500 hover:text-gray-700">
-              ← Back to Dashboard
-            </router-link>
-            <button
-              @click="handleLogout"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
-            >
-              Logout
-            </button>
-          </div>
+  <div class="container-fluid p-0">
+    <!-- Header with Search Bar -->
+    <div class="d-flex justify-content-between align-items-center bg-white shadow-sm border-bottom px-4 py-3">
+      <div class="d-flex align-items-center">
+        <i class="fas fa-users text-primary me-2"></i>
+        <h4 class="mb-0 fw-bold">User Manager</h4>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <div class="input-group" style="width: 300px;">
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="form-control"
+            placeholder="Search users..."
+            @input="debouncedSearch"
+          />
+          <button class="btn btn-outline-secondary" type="button" @click="loadUsers">
+            <i class="fas fa-search"></i>
+          </button>
         </div>
       </div>
-    </nav>
+    </div>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <!-- Header Section -->
-      <div class="md:flex md:items-center md:justify-between mb-6">
-        <div class="flex-1 min-w-0">
-          <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Users</h2>
-          <p class="mt-1 text-sm text-gray-500">Manage user accounts and monitor activity</p>
-        </div>
-      </div>
-
-      <!-- Search and Filters -->
-      <div class="bg-white shadow rounded-lg mb-6">
-        <div class="px-4 py-5 sm:p-6">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Search</label>
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="Search by username, email, or name..."
-                class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Status</label>
-              <select
-                v-model="statusFilter"
-                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-            <div class="flex items-end">
-              <button
-                @click="loadUsers"
-                class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-                Search
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center h-64">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-
-      <!-- Error State -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-        <div class="flex">
-          <div class="flex-shrink-0">
-            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-            </svg>
-          </div>
-          <div class="ml-3">
-            <h3 class="text-sm font-medium text-red-800">Error loading users</h3>
-            <p class="mt-2 text-sm text-red-700">{{ error }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Users Table -->
-      <div v-else class="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul class="divide-y divide-gray-200">
-          <li v-for="user in users" :key="user.id" class="px-6 py-4">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center">
-                <!-- Avatar -->
-                <div class="flex-shrink-0 h-12 w-12">
-                  <div class="h-12 w-12 rounded-full bg-gray-300 flex items-center justify-center">
-                    <svg class="h-6 w-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                    </svg>
+    <div class="container-fluid">
+        <div class="p-4">
+          <!-- Statistics Cards -->
+          <div class="row mb-4">
+            <div class="col-xl-3 col-lg-6 mb-3">
+              <div class="card bg-primary bg-gradient text-white h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="card-title text-white-50">Total Users</h6>
+                      <h3 class="mb-0">{{ totalStats.total || 0 }}</h3>
+                    </div>
+                    <i class="fas fa-users fa-2x opacity-75"></i>
                   </div>
-                </div>
-                
-                <!-- User Info -->
-                <div class="ml-4">
-                  <div class="flex items-center">
-                    <div class="text-sm font-medium text-gray-900">{{ user.full_name }}</div>
-                    <span
-                      :class="user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-                      class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                    >
-                      {{ user.is_active ? 'Active' : 'Inactive' }}
-                    </span>
+                  <div class="mt-2">
+                    <small class="text-white-50">{{ totalStats.active || 0 }} active</small>
                   </div>
-                  <div class="text-sm text-gray-500">@{{ user.username }} • {{ user.email }}</div>
-                  <div class="text-sm text-gray-500">{{ user.phone_number }}</div>
-                </div>
-              </div>
-              
-              <!-- Statistics -->
-              <div class="hidden md:flex md:items-center md:space-x-8">
-                <div class="text-center">
-                  <div class="text-lg font-semibold text-gray-900">{{ user.statistics.total_reservations }}</div>
-                  <div class="text-xs text-gray-500">Total Bookings</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-lg font-semibold text-green-600">{{ user.statistics.active_reservations }}</div>
-                  <div class="text-xs text-gray-500">Active</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-lg font-semibold text-gray-900">₹{{ user.statistics.total_spent }}</div>
-                  <div class="text-xs text-gray-500">Total Spent</div>
-                </div>
-              </div>
-              
-              <!-- Actions -->
-              <div class="flex items-center space-x-2">
-                <button
-                  @click="viewUserDetails(user)"
-                  class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1 rounded-md text-sm font-medium"
-                >
-                  View Details
-                </button>
-                <button
-                  @click="toggleUserStatus(user)"
-                  :class="user.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'"
-                  class="px-3 py-1 rounded-md text-sm font-medium"
-                >
-                  {{ user.is_active ? 'Deactivate' : 'Activate' }}
-                </button>
-              </div>
-            </div>
-            
-            <!-- Current Reservation -->
-            <div v-if="user.current_reservation" class="mt-4 bg-yellow-50 border border-yellow-200 rounded-md p-3">
-              <div class="flex items-center">
-                <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                </svg>
-                <div class="ml-3">
-                  <h4 class="text-sm font-medium text-yellow-800">Currently Parked</h4>
-                  <p class="text-sm text-yellow-700">
-                    Spot {{ user.current_reservation.spot_number }} at {{ user.current_reservation.lot_name }} • 
-                    {{ user.current_reservation.vehicle_number }} • 
-                    {{ Math.floor(user.current_reservation.duration_minutes / 60) }}h {{ user.current_reservation.duration_minutes % 60 }}m
-                  </p>
                 </div>
               </div>
             </div>
             
-            <!-- Mobile Statistics -->
-            <div class="mt-4 grid grid-cols-3 gap-4 md:hidden">
-              <div class="text-center">
-                <div class="text-lg font-semibold text-gray-900">{{ user.statistics.total_reservations }}</div>
-                <div class="text-xs text-gray-500">Bookings</div>
-              </div>
-              <div class="text-center">
-                <div class="text-lg font-semibold text-green-600">{{ user.statistics.active_reservations }}</div>
-                <div class="text-xs text-gray-500">Active</div>
-              </div>
-              <div class="text-center">
-                <div class="text-lg font-semibold text-gray-900">₹{{ user.statistics.total_spent }}</div>
-                <div class="text-xs text-gray-500">Spent</div>
+            <div class="col-xl-3 col-lg-6 mb-3">
+              <div class="card bg-success bg-gradient text-white h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="card-title text-white-50">Active Users</h6>
+                      <h3 class="mb-0">{{ totalStats.active || 0 }}</h3>
+                    </div>
+                    <i class="fas fa-user-check fa-2x opacity-75"></i>
+                  </div>
+                  <div class="mt-2">
+                    <small class="text-white-50">Currently online</small>
+                  </div>
+                </div>
               </div>
             </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Empty State -->
-      <div v-if="!loading && !error && users.length === 0" class="text-center py-12">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-        </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">No users found</h3>
-        <p class="mt-1 text-sm text-gray-500">No users match your search criteria.</p>
-      </div>
-
-      <!-- Pagination -->
-      <div v-if="pagination && pagination.pages > 1" class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6 rounded-lg shadow">
-        <div class="flex-1 flex justify-between sm:hidden">
-          <button
-            @click="changePage(pagination.page - 1)"
-            :disabled="!pagination.has_prev"
-            class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <button
-            @click="changePage(pagination.page + 1)"
-            :disabled="!pagination.has_next"
-            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p class="text-sm text-gray-700">
-              Showing {{ (pagination.page - 1) * pagination.per_page + 1 }} to 
-              {{ Math.min(pagination.page * pagination.per_page, pagination.total) }} of 
-              {{ pagination.total }} results
-            </p>
+            
+            <div class="col-xl-3 col-lg-6 mb-3">
+              <div class="card bg-warning bg-gradient text-white h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="card-title text-white-50">Reservations</h6>
+                      <h3 class="mb-0">{{ totalStats.total_reservations || 0 }}</h3>
+                    </div>
+                    <i class="fas fa-calendar-check fa-2x opacity-75"></i>
+                  </div>
+                  <div class="mt-2">
+                    <small class="text-white-50">{{ totalStats.active_reservations || 0 }} active</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-xl-3 col-lg-6 mb-3">
+              <div class="card bg-info bg-gradient text-white h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 class="card-title text-white-50">Revenue</h6>
+                      <h3 class="mb-0">₹{{ totalStats.total_spent || 0 }}</h3>
+                    </div>
+                    <i class="fas fa-rupee-sign fa-2x opacity-75"></i>
+                  </div>
+                  <div class="mt-2">
+                    <small class="text-white-50">Total earnings</small>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-              <button
-                @click="changePage(pagination.page - 1)"
-                :disabled="!pagination.has_prev"
-                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                @click="changePage(pagination.page + 1)"
-                :disabled="!pagination.has_next"
-                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </nav>
+
+          <!-- Filters -->
+          <div class="card mb-4">
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Status Filter</label>
+                  <select v-model="statusFilter" class="form-select" @change="loadUsers">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                  <button @click="resetFilters" class="btn btn-outline-secondary">
+                    <i class="fas fa-undo me-1"></i>
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+
+          <!-- Loading State -->
+          <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height: 300px;">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
+
+          <!-- Error State -->
+          <div v-else-if="error" class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {{ error }}
+          </div>
+
+          <!-- Users List -->
+          <div v-else class="row">
+            <div
+              v-for="user in users"
+              :key="user.id"
+              class="col-xl-6 col-lg-12 mb-4"
+            >
+              <div class="card h-100 shadow-sm hover-shadow-lg">
+                <div class="card-body">
+                  <div class="d-flex align-items-start">
+                    <!-- Avatar -->
+                    <div class="me-3">
+                      <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                        <i class="fas fa-user fa-2x text-muted"></i>
+                      </div>
+                    </div>
+                    
+                    <!-- User Info -->
+                    <div class="flex-grow-1">
+                      <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                          <h6 class="mb-1 fw-bold">{{ user.full_name }}</h6>
+                          <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="text-muted small">@{{ user.username }}</span>
+                            <span
+                              :class="user.is_active ? 'badge bg-success' : 'badge bg-danger'"
+                            >
+                              {{ user.is_active ? 'Active' : 'Inactive' }}
+                            </span>
+                          </div>
+                          <p class="text-muted small mb-1">
+                            <i class="fas fa-envelope me-1"></i>
+                            {{ user.email }}
+                          </p>
+                          <p class="text-muted small mb-0">
+                            <i class="fas fa-phone me-1"></i>
+                            {{ user.phone_number }}
+                          </p>
+                        </div>
+                      </div>
+
+                      <!-- Statistics -->
+                      <div class="row g-2 mb-3">
+                        <div class="col-4 text-center">
+                          <div class="bg-light p-2 rounded">
+                            <div class="fw-bold text-primary">{{ user.statistics.total_reservations }}</div>
+                            <small class="text-muted">Bookings</small>
+                          </div>
+                        </div>
+                        <div class="col-4 text-center">
+                          <div class="bg-light p-2 rounded">
+                            <div class="fw-bold text-success">{{ user.statistics.active_reservations }}</div>
+                            <small class="text-muted">Active</small>
+                          </div>
+                        </div>
+                        <div class="col-4 text-center">
+                          <div class="bg-light p-2 rounded">
+                            <div class="fw-bold text-info">₹{{ user.statistics.total_spent }}</div>
+                            <small class="text-muted">Spent</small>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Current Reservation Alert -->
+                      <div v-if="user.current_reservation" class="alert alert-warning py-2 mb-3">
+                        <div class="d-flex align-items-center">
+                          <i class="fas fa-parking me-2"></i>
+                          <div class="small">
+                            <strong>Currently Parked:</strong><br>
+                            Spot {{ user.current_reservation.spot_number }} at {{ user.current_reservation.lot_name }}<br>
+                            {{ user.current_reservation.vehicle_number }} • 
+                            {{ Math.floor(user.current_reservation.duration_minutes / 60) }}h {{ user.current_reservation.duration_minutes % 60 }}m
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Actions -->
+                      <div class="d-flex gap-2">
+                        <button
+                          @click="viewUserDetails(user)"
+                          class="btn btn-outline-primary btn-sm flex-fill"
+                        >
+                          <i class="fas fa-eye me-1"></i>
+                          View Details
+                        </button>
+                        <button
+                          @click="toggleUserStatus(user)"
+                          :class="user.is_active ? 'btn btn-outline-danger btn-sm' : 'btn btn-outline-success btn-sm'"
+                        >
+                          <i :class="user.is_active ? 'fas fa-user-times' : 'fas fa-user-check'"></i>
+                          {{ user.is_active ? 'Deactivate' : 'Activate' }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div v-if="!loading && !error && users.length === 0" class="text-center py-5">
+            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No users found</h5>
+            <p class="text-muted">No users match your search criteria.</p>
+          </div>
+
+          <!-- Pagination -->
+          <nav v-if="pagination && pagination.pages > 1" aria-label="Users pagination">
+            <ul class="pagination justify-content-center">
+              <li class="page-item" :class="{ disabled: !pagination.has_prev }">
+                <button class="page-link" @click="changePage(pagination.page - 1)" :disabled="!pagination.has_prev">
+                  Previous
+                </button>
+              </li>
+              <li class="page-item active">
+                <span class="page-link">{{ pagination.page }}</span>
+              </li>
+              <li class="page-item" :class="{ disabled: !pagination.has_next }">
+                <button class="page-link" @click="changePage(pagination.page + 1)" :disabled="!pagination.has_next">
+                  Next
+                </button>
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
     </div>
 
     <!-- User Details Modal -->
-    <div v-if="showUserModal" class="fixed inset-0 z-10 overflow-y-auto">
-      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg leading-6 font-medium text-gray-900">User Details</h3>
-              <button
-                @click="showUserModal = false"
-                class="bg-white rounded-md text-gray-400 hover:text-gray-600"
-              >
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-            
-            <div v-if="selectedUser" class="space-y-6">
-              <!-- User Info -->
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700">Full Name</label>
-                  <p class="mt-1 text-sm text-gray-900">{{ selectedUser.full_name }}</p>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700">Username</label>
-                  <p class="mt-1 text-sm text-gray-900">{{ selectedUser.username }}</p>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700">Email</label>
-                  <p class="mt-1 text-sm text-gray-900">{{ selectedUser.email }}</p>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700">Phone</label>
-                  <p class="mt-1 text-sm text-gray-900">{{ selectedUser.phone_number }}</p>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="block text-sm font-medium text-gray-700">Address</label>
-                  <p class="mt-1 text-sm text-gray-900">{{ selectedUser.address || 'Not provided' }}</p>
+    <div v-if="showUserModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5);" @click.self="closeUserModal">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-user me-2"></i>
+              User Details
+            </h5>
+            <button type="button" class="btn-close" @click="closeUserModal" aria-label="Close"></button>
+          </div>
+          
+          <div class="modal-body">
+            <div v-if="selectedUser" class="row g-4">
+              <!-- Personal Information -->
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header">
+                    <h6 class="mb-0">
+                      <i class="fas fa-id-card me-2"></i>
+                      Personal Information
+                    </h6>
+                  </div>
+                  <div class="card-body">
+                    <div class="row g-3">
+                      <div class="col-12">
+                        <label class="form-label text-muted">Full Name</label>
+                        <p class="mb-0 fw-semibold">{{ selectedUser.full_name }}</p>
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label text-muted">Username</label>
+                        <p class="mb-0">{{ selectedUser.username }}</p>
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label text-muted">Status</label>
+                        <p class="mb-0">
+                          <span :class="selectedUser.is_active ? 'badge bg-success' : 'badge bg-danger'">
+                            {{ selectedUser.is_active ? 'Active' : 'Inactive' }}
+                          </span>
+                        </p>
+                      </div>
+                      <div class="col-12">
+                        <label class="form-label text-muted">Email</label>
+                        <p class="mb-0">{{ selectedUser.email }}</p>
+                      </div>
+                      <div class="col-12">
+                        <label class="form-label text-muted">Phone</label>
+                        <p class="mb-0">{{ selectedUser.phone_number }}</p>
+                      </div>
+                      <div class="col-12">
+                        <label class="form-label text-muted">Address</label>
+                        <p class="mb-0">{{ selectedUser.address || 'Not provided' }}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               
               <!-- Statistics -->
-              <div>
-                <h4 class="text-lg font-medium text-gray-900 mb-4">Statistics</h4>
-                <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div class="text-center p-4 bg-gray-50 rounded-lg">
-                    <div class="text-2xl font-bold text-gray-900">{{ selectedUser.statistics.total_reservations }}</div>
-                    <div class="text-sm text-gray-500">Total Bookings</div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header">
+                    <h6 class="mb-0">
+                      <i class="fas fa-chart-bar me-2"></i>
+                      Statistics
+                    </h6>
                   </div>
-                  <div class="text-center p-4 bg-green-50 rounded-lg">
-                    <div class="text-2xl font-bold text-green-600">{{ selectedUser.statistics.completed_reservations }}</div>
-                    <div class="text-sm text-gray-500">Completed</div>
-                  </div>
-                  <div class="text-center p-4 bg-yellow-50 rounded-lg">
-                    <div class="text-2xl font-bold text-yellow-600">{{ selectedUser.statistics.active_reservations }}</div>
-                    <div class="text-sm text-gray-500">Active</div>
-                  </div>
-                  <div class="text-center p-4 bg-blue-50 rounded-lg">
-                    <div class="text-2xl font-bold text-blue-600">₹{{ selectedUser.statistics.total_spent }}</div>
-                    <div class="text-sm text-gray-500">Total Spent</div>
+                  <div class="card-body">
+                    <div class="row g-3">
+                      <div class="col-6">
+                        <div class="text-center p-3 bg-primary bg-gradient text-white rounded">
+                          <h4 class="mb-0">{{ selectedUser.statistics.total_reservations }}</h4>
+                          <small>Total Bookings</small>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="text-center p-3 bg-success bg-gradient text-white rounded">
+                          <h4 class="mb-0">{{ selectedUser.statistics.completed_reservations }}</h4>
+                          <small>Completed</small>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="text-center p-3 bg-warning bg-gradient text-white rounded">
+                          <h4 class="mb-0">{{ selectedUser.statistics.active_reservations }}</h4>
+                          <small>Active</small>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="text-center p-3 bg-info bg-gradient text-white rounded">
+                          <h4 class="mb-0">₹{{ selectedUser.statistics.total_spent }}</h4>
+                          <small>Total Spent</small>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeUserModal">
+              Close
+            </button>
+            <button
+              @click="toggleUserStatus(selectedUser)"
+              :class="selectedUser?.is_active ? 'btn btn-danger' : 'btn btn-success'"
+            >
+              <i :class="selectedUser?.is_active ? 'fas fa-user-times' : 'fas fa-user-check'" class="me-1"></i>
+              {{ selectedUser?.is_active ? 'Deactivate User' : 'Activate User' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</template>
+  </template>
 
 <script>
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { adminAPI, authAPI } from '../../services/api'
 
 export default {
   name: 'UserManager',
-  data() {
-    return {
-      loading: true,
-      error: '',
-      users: [],
-      pagination: null,
-      searchQuery: '',
-      statusFilter: 'all',
-      currentPage: 1,
-      perPage: 10,
+  setup() {
+    const router = useRouter()
+    
+    // Reactive data
+    const loading = ref(true)
+    const error = ref('')
+    const users = ref([])
+    const pagination = ref(null)
+    const searchQuery = ref('')
+    const statusFilter = ref('all')
+    const currentPage = ref(1)
+    const perPage = ref(10)
+    
+    // Modals
+    const showUserModal = ref(false)
+    const selectedUser = ref(null)
+
+    // Computed stats
+    const totalStats = computed(() => {
+      const stats = {
+        total: users.value.length,
+        active: 0,
+        total_reservations: 0,
+        active_reservations: 0,
+        total_spent: 0
+      }
       
-      // Modals
-      showUserModal: false,
-      selectedUser: null
-    }
-  },
-  async mounted() {
-    await this.loadUsers()
-  },
-  methods: {
-    async loadUsers() {
+      users.value.forEach(user => {
+        if (user.is_active) stats.active++
+        stats.total_reservations += user.statistics?.total_reservations || 0
+        stats.active_reservations += user.statistics?.active_reservations || 0
+        stats.total_spent += user.statistics?.total_spent || 0
+      })
+      
+      return stats
+    })
+
+    // Methods
+    const loadUsers = async () => {
       try {
-        this.loading = true
-        this.error = ''
+        loading.value = true
+        error.value = ''
 
         const params = {
-          page: this.currentPage,
-          per_page: this.perPage,
-          search: this.searchQuery,
-          status: this.statusFilter
+          page: currentPage.value,
+          per_page: perPage.value,
+          search: searchQuery.value,
+          status: statusFilter.value
         }
 
         const response = await adminAPI.getUsers(params)
         
         if (response.data.success) {
-          this.users = response.data.data.users
-          this.pagination = response.data.data.pagination
+          users.value = response.data.data.users
+          pagination.value = response.data.data.pagination
         } else {
-          this.error = response.data.message
+          error.value = response.data.message
         }
       } catch (err) {
-        this.error = err.response?.data?.message || 'Failed to load users'
+        error.value = err.response?.data?.message || 'Failed to load users'
       } finally {
-        this.loading = false
+        loading.value = false
       }
-    },
+    }
     
-    changePage(page) {
-      if (page >= 1 && page <= this.pagination.pages) {
-        this.currentPage = page
-        this.loadUsers()
+    const debouncedSearch = (() => {
+      let timeout
+      return () => {
+        clearTimeout(timeout)
+        timeout = setTimeout(() => {
+          currentPage.value = 1
+          loadUsers()
+        }, 500)
       }
-    },
+    })()
     
-    async viewUserDetails(user) {
+    const changePage = (page) => {
+      if (page >= 1 && page <= pagination.value.pages) {
+        currentPage.value = page
+        loadUsers()
+      }
+    }
+    
+    const resetFilters = () => {
+      searchQuery.value = ''
+      statusFilter.value = 'all'
+      currentPage.value = 1
+      loadUsers()
+    }
+    
+    const viewUserDetails = async (user) => {
       try {
+        console.log('Loading user details for:', user.username)
         const response = await adminAPI.getUser(user.id)
         if (response.data.success) {
-          this.selectedUser = response.data.data
-          this.showUserModal = true
+          selectedUser.value = response.data.data
+          showUserModal.value = true
+          console.log('User modal opened, showUserModal.value is now:', showUserModal.value)
+        } else {
+          alert(response.data.message || 'Failed to load user details')
         }
       } catch (err) {
+        console.error('Error loading user details:', err)
         alert(err.response?.data?.message || 'Failed to load user details')
       }
-    },
+    }
     
-    async toggleUserStatus(user) {
+    const closeUserModal = () => {
+      console.log('Closing user modal...')
+      showUserModal.value = false
+      selectedUser.value = null
+      console.log('User modal closed, showUserModal.value is now:', showUserModal.value)
+    }
+    
+    const toggleUserStatus = async (user) => {
       const action = user.is_active ? 'deactivate' : 'activate'
       if (!confirm(`Are you sure you want to ${action} user "${user.username}"?`)) {
         return
@@ -411,24 +508,105 @@ export default {
         const response = await adminAPI.toggleUserStatus(user.id)
         if (response.data.success) {
           alert(response.data.message)
-          this.loadUsers()
+          loadUsers()
+          // Update selectedUser if it's the same user
+          if (selectedUser.value && selectedUser.value.id === user.id) {
+            selectedUser.value.is_active = !selectedUser.value.is_active
+          }
         } else {
           alert(response.data.message)
         }
       } catch (err) {
         alert(err.response?.data?.message || `Failed to ${action} user`)
       }
-    },
+    }
     
-    async handleLogout() {
-      try {
-        await authAPI.logout()
-        this.$router.push('/login')
-      } catch (err) {
-        console.error('Logout failed:', err)
-        this.$router.push('/login')
-      }
+
+
+    // Lifecycle
+    onMounted(() => {
+      loadUsers()
+    })
+
+    return {
+      loading,
+      error,
+      users,
+      pagination,
+      searchQuery,
+      statusFilter,
+      currentPage,
+      perPage,
+      showUserModal,
+      selectedUser,
+      totalStats,
+      loadUsers,
+      debouncedSearch,
+      changePage,
+      resetFilters,
+      viewUserDetails,
+      closeUserModal,
+      toggleUserStatus
     }
   }
 }
-</script> 
+</script>
+
+<style scoped>
+.hover-shadow-lg:hover {
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175) !important;
+  transition: box-shadow 0.15s ease-in-out;
+}
+
+.nav-link.active {
+  background-color: rgba(13, 110, 253, 0.1);
+  color: #0d6efd !important;
+  font-weight: 600;
+}
+
+.nav-link:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 0.375rem;
+}
+
+.card {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+.modal {
+  z-index: 1050;
+}
+
+.modal-dialog {
+  margin: 1.75rem auto;
+}
+
+.modal-content {
+  background-clip: padding-box;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 0.3rem;
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.5);
+}
+
+.bg-gradient {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
+}
+
+.avatar-circle {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+</style> 
